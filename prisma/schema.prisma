@@ -1,6 +1,6 @@
 datasource db {
   provider = "postgresql"
-  url      = "postgresql://neondb_owner:npg_8CrUXjyZa7xJ@ep-empty-bonus-ath4lqpj.c-9.us-east-1.aws.neon.tech:5432/neondb?sslmode=require"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
@@ -15,16 +15,16 @@ enum OrderStatus {
 }
 
 model Product {
-  id          Int         @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
   name        String
   price       Float
   description String?
   category    String?
-  createdAt   DateTime    @default(now())
+  createdAt   DateTime @default(now())
 
-  images      Image[]
-  variations  Variation[]
-  orderItems  OrderItem[]
+  images     Image[]
+  variations Variation[]
+  orderItems OrderItem[]
 }
 
 model Image {
@@ -33,7 +33,7 @@ model Image {
   isMain    Boolean @default(false)
   productId Int
 
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model Variation {
@@ -41,51 +41,65 @@ model Variation {
   size      String
   color     String
   stock     Int
-
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
   productId Int
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model User {
-  id         String   @id @default(uuid())
-  email      String   @unique
+  id         String  @id @default(uuid())
+  name       String?
+  email      String  @unique
   password   String
-  role       String   @default("CLIENTE")
-  isVerified Boolean  @default(false)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  role       String  @default("CLIENTE")
+  isVerified Boolean @default(false)
 
-  orders     Order[]
+  phone     String?
+  cpf       String?   @unique
+  birthDate DateTime?
+  avatarUrl String?
+
+  zipCode      String?
+  street       String?
+  number       String?
+  complement   String?
+  neighborhood String?
+  city         String?
+  state        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders Order[]
 }
 
 model Order {
-  id          String      @id @default(uuid())
-  status      OrderStatus @default(PENDING)
-  total       Float
-  paymentId   String?     @unique
+  id        String      @id @default(uuid())
+  status    OrderStatus @default(PENDING)
+  total     Float
+  paymentId String?     @unique
 
-  userId      String
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  items       OrderItem[]
+  items OrderItem[]
 
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model OrderItem {
-  id          String   @id @default(uuid())
+  id String @id @default(uuid())
 
-  productId   Int
-  product     Product  @relation(fields: [productId], references: [id])
+  productId Int
+  product   Product @relation(fields: [productId], references: [id])
 
   productName String
-
   quantity    Int
   unitPrice   Float
 
-  orderId     String
-  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 }
 
 model EmailVerification {
