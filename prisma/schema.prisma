@@ -1,111 +1,176 @@
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
+// ==========================================
+// 6. SOLICITAR REDEFINIÇÃO DE SENHA
+// ==========================================
+const requestPasswordReset = async (req, res) => {
+  try {
+    const email = String(req.body.email || "")
+      .trim()
+      .toLowerCase();
 
-generator client {
-  provider = "prisma-client-js"
-}
+    if (!email) {
+      return res.status(400).json({
+        error: "O e-mail é obrigatório.",
+      });
+    }
 
-enum OrderStatus {
-  PENDING
-  PAID
-  CANCELLED
-  REFUNDED
-}
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
 
-model Product {
-  id          Int      @id @default(autoincrement())
-  name        String
-  price       Float
-  description String?
-  category    String?
-  createdAt   DateTime @default(now())
+    if (!user) {
+      return res.status(404).json({
+        error: "Nenhuma conta foi encontrada com este e-mail.",
+      });
+    }
 
-  images     Image[]
-  variations Variation[]
-  orderItems OrderItem[]
-}
+    const resetCode = Math.floor(
+      100000 + Math.random() * 900000
+    ).toString();
 
-model Image {
-  id        Int     @id @default(autoincrement())
-  imageUrl  String
-  isMain    Boolean @default(false)
-  productId Int
+    const expiresAt = new Date(
+      Date.now() + 10 * 60 * 1000
+    );
 
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-}
+    await prisma.emailVerification.upsert({
+      where: { email },
+      update: {
+        code: resetCode,
+        expiresAt,
+      },
+      create: {
+        email,
+        code: resetCode,
+        expiresAt,
+      },
+    });
 
-model Variation {
-  id        Int    @id @default(autoincrement())
-  size      String
-  color     String
-  stock     Int
-  productId Int
+    await transporter.sendMail({
+      from: '"Trinity Corp Security" <security@trinitycorp.com>',
+      to: email,
+      subject: "REDEFINIÇÃO DE SENHA - TRINITY",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 24px; background: #111; color: #fff; border: 1px solid #333; border-radius: 12px;">
+          <h2 style="text-align: center; margin-bottom: 24px;">
+            TRINITY
+          </h2>
 
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-}
+          <p>Recebemos uma solicitação para redefinir sua senha.</p>
 
-model User {
-  id         String  @id @default(uuid())
-  name       String?
-  email      String  @unique
-  password   String
-  role       String  @default("CLIENTE")
-  isVerified Boolean @default(false)
+          <p>Use o código abaixo:</p>
 
-  phone     String?
-  cpf       String?   @unique
-  birthDate DateTime?
-  avatarUrl String?
+          <div style="margin: 24px 0; padding: 18px; text-align: center; background: #222; border: 1px dashed #fff; border-radius: 8px; font-size: 28px; font-weight: bold; letter-spacing: 6px;">
+            ${resetCode}
+          </div>
 
-  zipCode      String?
-  street       String?
-  number       String?
-  complement   String?
-  neighborhood String?
-  city         String?
-  state        String?
+          <p style="font-size: 13px; color: #aaa;">
+            O código expira em 10 minutos. Se você não solicitou a redefinição, ignore este e-mail.
+          </p>
+        </div>
+      `,
+    });
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+    return res.status(200).json({
+      message: "Código de redefinição enviado para seu e-mail.",
+    });
+  } catch (error) {
+    console.error(
+      "Erro ao solicitar redefinição de senha:",
+      error
+    );
 
-  orders Order[]
-}
+    return res.status(500).json({
+      error: "Erro interno ao enviar o código de redefinição.",
+    });
+  }
+};
 
-model Order {
-  id        String      @id @default(uuid())
-  status    OrderStatus @default(PENDING)
-  total     Float
-  paymentId String?     @unique
+// ==========================================
+// 7. REDEFINIR SENHA
+// ==========================================
+const resetPassword = async (req, res) => {
+  try {
+    const email = String(req.body.email || "")
+      .trim()
+      .toLowerCase();
 
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+    const code = String(req.body.code || "").trim();
+    const password = String(req.body.password || "");
 
-  items OrderItem[]
+    if (!email || !code || !password) {
+      return res.status(400).json({
+        error: "E-mail, código e nova senha são obrigatórios.",
+      });
+    }
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
+    if (password.length < 6) {
+      return res.status(400).json({
+        error: "A nova senha precisa ter pelo menos 6 caracteres.",
+      });
+    }
 
-model OrderItem {
-  id String @id @default(uuid())
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
 
-  productId Int
-  product   Product @relation(fields: [productId], references: [id])
+    if (!user) {
+      return res.status(404).json({
+        error: "Usuário não encontrado.",
+      });
+    }
 
-  productName String
-  quantity    Int
-  unitPrice   Float
+    const verification =
+      await prisma.emailVerification.findUnique({
+        where: { email },
+      });
 
-  orderId String
-  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
-}
+    if (!verification) {
+      return res.status(400).json({
+        error: "Nenhum código de redefinição foi encontrado.",
+      });
+    }
 
-model EmailVerification {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  code      String
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-}
+    if (
+      String(verification.code).trim() !== code
+    ) {
+      return res.status(400).json({
+        error: "Código inválido.",
+      });
+    }
+
+    if (new Date() > verification.expiresAt) {
+      await prisma.emailVerification.delete({
+        where: { email },
+      });
+
+      return res.status(400).json({
+        error: "O código expirou. Solicite um novo.",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(
+      password,
+      10
+    );
+
+    await prisma.user.update({
+      where: { email },
+      data: {
+        password: hashedPassword,
+      },
+    });
+
+    await prisma.emailVerification.delete({
+      where: { email },
+    });
+
+    return res.status(200).json({
+      message: "Senha redefinida com sucesso.",
+    });
+  } catch (error) {
+    console.error("Erro ao redefinir senha:", error);
+
+    return res.status(500).json({
+      error: "Erro interno ao redefinir a senha.",
+    });
+  }
+};

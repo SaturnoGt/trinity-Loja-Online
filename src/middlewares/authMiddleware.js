@@ -1,6 +1,6 @@
 const jwt = require("jsonwebtoken");
 
-const authMiddleware = (req, res, next) => {
+function authMiddleware(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
 
@@ -10,22 +10,39 @@ const authMiddleware = (req, res, next) => {
       });
     }
 
-    const [, token] = authHeader.split(" ");
+    const parts = authHeader.split(" ");
+
+    if (
+      parts.length !== 2 ||
+      parts[0] !== "Bearer" ||
+      !parts[1]
+    ) {
+      return res.status(401).json({
+        message: "Formato do token inválido.",
+      });
+    }
+
+    const token = parts[1];
 
     const decoded = jwt.verify(
       token,
-      process.env.JWT_SECRET || "chave_secreta_padrao_trinity"
+      process.env.JWT_SECRET ||
+        "chave_secreta_padrao_trinity"
     );
 
     req.user = decoded;
 
-    next();
-
+    return next();
   } catch (error) {
+    console.error(
+      "Erro no authMiddleware:",
+      error.message
+    );
+
     return res.status(401).json({
-      message: "Token inválido.",
+      message: "Token inválido ou expirado.",
     });
   }
-};
+}
 
 module.exports = authMiddleware;

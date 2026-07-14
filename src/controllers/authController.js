@@ -72,109 +72,437 @@ const register = async (req, res) => {
     const { email, password, code } = req.body;
 
     if (!email || !password || !code) {
-      return res.status(400).json({ error: "E-mail, senha e código de verificação são obrigatórios." });
+      return res.status(400).json({
+        error: "E-mail, senha e código de verificação são obrigatórios.",
+      });
     }
 
-    // Busca o registro de validação no banco
     const verification = await prisma.emailVerification.findUnique({
-      where: { email }
+      where: {
+        email,
+      },
     });
 
-    console.log("========== REGISTER ==========");
-    console.log("Email recebido:", email);
-    console.log("Código recebido:", code);
-    console.log("Registro encontrado:", verification);
-
     if (!verification) {
-      return res.status(400).json({ error: "Nenhum código encontrado para este e-mail." });
+      return res.status(400).json({
+        error: "Nenhum código encontrado para este e-mail.",
+      });
     }
 
     if (String(verification.code).trim() !== String(code).trim()) {
-      return res.status(400).json({ error: "Código incorreto." });
+      return res.status(400).json({
+        error: "Código incorreto.",
+      });
     }
 
-    // Validação de janela de expiração temporal
     if (new Date() > verification.expiresAt) {
-      return res.status(400).json({ error: "Este código já expirou. Solicite um novo código." });
+      return res.status(400).json({
+        error: "Este código já expirou. Solicite um novo código.",
+      });
     }
 
-    // Criptografa a senha com bcrypt
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Cria o usuário como CLIENTE por padrão
     const newUser = await prisma.user.create({
       data: {
         email,
         password: hashedPassword,
-        role: "CLIENTE"
-      }
+        role: "CLIENTE",
+      },
     });
 
-    // Remove o registro de verificação para evitar reuso
-    await prisma.emailVerification.delete({ where: { email } });
-
-    res.status(201).json({ 
-      message: "Identidade verificada! Usuário registrado com sucesso.", 
-      user: { id: newUser.id, email: newUser.email, role: newUser.role } 
+    await prisma.emailVerification.delete({
+      where: {
+        email,
+      },
     });
 
+    return res.status(201).json({
+      message: "Identidade verificada! Usuário registrado com sucesso.",
+      user: {
+        id: newUser.id,
+        email: newUser.email,
+        role: newUser.role,
+      },
+    });
   } catch (error) {
     console.error("Erro na validação do registro:", error);
-    res.status(500).json({ error: "Erro interno ao processar a validação do cadastro." });
+
+    return res.status(500).json({
+      error: "Erro interno ao processar a validação do cadastro.",
+    });
   }
 };
 
 // ==========================================
 // 3. LOGIN SISTÊMICO (AUTENTICAÇÃO JWT)
 // ==========================================
+
 const login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ error: "E-mail e senha são obrigatórios." });
+      return res.status(400).json({
+        error: "E-mail e senha são obrigatórios.",
+      });
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
-    if (!user) {
-      return res.status(401).json({ error: "Credenciais inválidas." });
-    }
-
-    const passwordMatch = await bcrypt.compare(password, user.password);
-    if (!passwordMatch) {
-      return res.status(401).json({ error: "Credenciais inválidas." });
-    }
-
-    // Geração do token JWT
-    const token = jwt.sign(
-      { id: user.id, email: user.email, role: user.role },
-      process.env.JWT_SECRET || 'chave_secreta_padrao_trinity',
-      { expiresIn: process.env.JWT_EXPIRES_IN || '15m' }
-    );
-
-    res.status(200).json({
-      token,
-      user: { id: user.id, email: user.email, role: user.role }
+    const user = await prisma.user.findUnique({
+      where: {
+        email,
+      },
     });
 
+    if (!user) {
+      return res.status(401).json({
+        error: "Credenciais inválidas.",
+      });
+    }
+
+    const passwordMatch = await bcrypt.compare(
+      password,
+      user.password
+    );
+
+    if (!passwordMatch) {
+      return res.status(401).json({
+        error: "Credenciais inválidas.",
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      },
+      process.env.JWT_SECRET || "chave_secreta_padrao_trinity",
+      {
+        expiresIn:
+          process.env.JWT_EXPIRES_IN || "15m",
+      }
+    );
+
+    return res.status(200).json({
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      },
+    });
   } catch (error) {
     console.error("Erro no processamento do login:", error);
-    res.status(500).json({ error: "Erro interno ao processar o login." });
+
+    return res.status(500).json({
+      error: "Erro interno ao processar o login.",
+    });
+  }
+};
+// ==========================================
+// 4. BUSCAR PERFIL DO USUÁRIO
+// ==========================================
+const getProfile = async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: {
+        id: req.user.id,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        isVerified: true,
+        phone: true,
+        cpf: true,
+        birthDate: true,
+        avatarUrl: true,
+        zipCode: true,
+        street: true,
+        number: true,
+        complement: true,
+        neighborhood: true,
+        city: true,
+        state: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        error: "Usuário não encontrado.",
+      });
+    }
+
+    return res.status(200).json(user);
+  } catch (error) {
+    console.error("Erro ao buscar perfil:", error);
+
+    return res.status(500).json({
+      error: "Erro interno ao buscar perfil.",
+    });
   }
 };
 
-// Adicione esta linha temporária de teste pedida pelo ChatGPT:
-// 1. O teste do console.log que o ChatGPT pediu para ver no terminal
-console.log({
-  requestEmailVerification,
-  register,
-  login
-});
+// ==========================================
+// 5. ATUALIZAR PERFIL
+// ==========================================
+const updateProfile = async (req, res) => {
+  try {
+    const {
+      name,
+      phone,
+      cpf,
+      birthDate,
+      avatarUrl,
+      zipCode,
+      street,
+      number,
+      complement,
+      neighborhood,
+      city,
+      state,
+    } = req.body;
 
-// 2. A exportação única e correta das funções
+    const updatedUser = await prisma.user.update({
+      where: {
+        id: req.user.id,
+      },
+      data: {
+        name: name || null,
+        phone: phone || null,
+        cpf: cpf ? cpf.replace(/\D/g, "") : null,
+        birthDate: birthDate ? new Date(birthDate) : null,
+        avatarUrl: avatarUrl || null,
+        zipCode: zipCode || null,
+        street: street || null,
+        number: number || null,
+        complement: complement || null,
+        neighborhood: neighborhood || null,
+        city: city || null,
+        state: state || null,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        isVerified: true,
+        phone: true,
+        cpf: true,
+        birthDate: true,
+        avatarUrl: true,
+        zipCode: true,
+        street: true,
+        number: true,
+        complement: true,
+        neighborhood: true,
+        city: true,
+        state: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return res.status(200).json({
+      message: "Perfil atualizado com sucesso.",
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error("Erro ao atualizar perfil:", error);
+
+    return res.status(500).json({
+      error: "Erro interno ao atualizar perfil.",
+    });
+  }
+};// ==========================================
+// 6. SOLICITAR REDEFINIÇÃO DE SENHA
+// ==========================================
+const requestPasswordReset = async (req, res) => {
+  try {
+    const email = String(req.body.email || "")
+      .trim()
+      .toLowerCase();
+
+    if (!email) {
+      return res.status(400).json({
+        error: "O e-mail é obrigatório.",
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        error: "Nenhuma conta foi encontrada com este e-mail.",
+      });
+    }
+
+    const resetCode = Math.floor(
+      100000 + Math.random() * 900000
+    ).toString();
+
+    const expiresAt = new Date(
+      Date.now() + 10 * 60 * 1000
+    );
+
+    await prisma.emailVerification.upsert({
+      where: { email },
+      update: {
+        code: resetCode,
+        expiresAt,
+      },
+      create: {
+        email,
+        code: resetCode,
+        expiresAt,
+      },
+    });
+
+    await transporter.sendMail({
+      from: '"Trinity Corp Security" <security@trinitycorp.com>',
+      to: email,
+      subject: "REDEFINIÇÃO DE SENHA - TRINITY",
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 520px; margin: 0 auto; padding: 24px; background: #111; color: #fff; border: 1px solid #333; border-radius: 12px;">
+          <h2 style="text-align: center; margin-bottom: 24px;">
+            TRINITY
+          </h2>
+
+          <p>Recebemos uma solicitação para redefinir sua senha.</p>
+
+          <p>Use o código abaixo:</p>
+
+          <div style="margin: 24px 0; padding: 18px; text-align: center; background: #222; border: 1px dashed #fff; border-radius: 8px; font-size: 28px; font-weight: bold; letter-spacing: 6px;">
+            ${resetCode}
+          </div>
+
+          <p style="font-size: 13px; color: #aaa;">
+            O código expira em 10 minutos.
+          </p>
+        </div>
+      `,
+    });
+
+    return res.status(200).json({
+      message: "Código de redefinição enviado para seu e-mail.",
+    });
+  } catch (error) {
+    console.error(
+      "Erro ao solicitar redefinição de senha:",
+      error
+    );
+
+    return res.status(500).json({
+      error: "Erro interno ao enviar o código de redefinição.",
+    });
+  }
+};
+
+// ==========================================
+// 7. REDEFINIR SENHA
+// ==========================================
+const resetPassword = async (req, res) => {
+  try {
+    const email = String(req.body.email || "")
+      .trim()
+      .toLowerCase();
+
+    const code = String(req.body.code || "").trim();
+    const password = String(req.body.password || "");
+
+    if (!email || !code || !password) {
+      return res.status(400).json({
+        error: "E-mail, código e nova senha são obrigatórios.",
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        error: "A nova senha precisa ter pelo menos 6 caracteres.",
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      return res.status(404).json({
+        error: "Usuário não encontrado.",
+      });
+    }
+
+    const verification =
+      await prisma.emailVerification.findUnique({
+        where: { email },
+      });
+
+    if (!verification) {
+      return res.status(400).json({
+        error: "Nenhum código de redefinição foi encontrado.",
+      });
+    }
+
+    if (
+      String(verification.code).trim() !== code
+    ) {
+      return res.status(400).json({
+        error: "Código inválido.",
+      });
+    }
+
+    if (new Date() > verification.expiresAt) {
+      await prisma.emailVerification.delete({
+        where: { email },
+      });
+
+      return res.status(400).json({
+        error: "O código expirou. Solicite um novo.",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(
+      password,
+      10
+    );
+
+    await prisma.user.update({
+      where: { email },
+      data: {
+        password: hashedPassword,
+      },
+    });
+
+    await prisma.emailVerification.delete({
+      where: { email },
+    });
+
+    return res.status(200).json({
+      message: "Senha redefinida com sucesso.",
+    });
+  } catch (error) {
+    console.error("Erro ao redefinir senha:", error);
+
+    return res.status(500).json({
+      error: "Erro interno ao redefinir a senha.",
+    });
+  }
+};
+// ==========================================
+// EXPORTAÇÕES
+// ==========================================
 module.exports = {
   requestEmailVerification,
   register,
-  login
+  login,
+  getProfile,
+  updateProfile,
+  requestPasswordReset,
+  resetPassword,
 };

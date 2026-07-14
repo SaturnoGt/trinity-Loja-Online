@@ -1,20 +1,52 @@
-const express = require('express');
-const router = express.Router();
+const express = require("express");
+
+const authMiddleware = require(
+  "../middlewares/authMiddleware"
+);
 
 const {
   requestEmailVerification,
   register,
-  login
-} = require('../controllers/authController');
+  login,
+  getProfile,
+  updateProfile,
+  requestPasswordReset,
+  resetPassword,
+} = require("../controllers/authController");
 
-console.log({
-  requestEmailVerification,
-  register,
-  login
-});
+const router = express.Router();
 
-router.post('/request-verification', requestEmailVerification);
-router.post('/register', register);
-router.post('/login', login);
+// Cadastro e login
+router.post(
+  "/request-verification",
+  requestEmailVerification
+);
+
+router.post("/register", register);
+router.post("/login", login);
+
+// Recuperação de senha
+router.post(
+  "/request-password-reset",
+  requestPasswordReset
+);
+
+router.post(
+  "/reset-password",
+  resetPassword
+);
+
+// Perfil protegido
+router.get(
+  "/profile",
+  authMiddleware,
+  getProfile
+);
+
+router.put(
+  "/profile",
+  authMiddleware,
+  updateProfile
+);
 
 module.exports = router;
