@@ -9,9 +9,34 @@ import ProductGrid from '@/components/home/ProductGrid';
 import FeatureSection from '@/components/home/FeatureSection';
 import Newsletter from '@/components/home/Newsletter';
 
+const categoryAliases = {
+  Todos: [],
+  Camisetas: [
+    'camisetas',
+    'camiseta',
+    'camisas',
+    'camisa',
+  ],
+  Oversized: [
+    'oversized',
+    'oversize',
+  ],
+  Moletons: [
+    'moletons',
+    'moletom',
+  ],
+  Acessórios: [
+    'acessórios',
+    'acessorios',
+    'acessório',
+    'acessorio',
+  ],
+};
+
 export default function HomePage() {
   const [products, setProducts] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState('Todos');
+  const [selectedCategory, setSelectedCategory] =
+    useState('Todos');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
 
@@ -28,9 +53,16 @@ export default function HomePage() {
 
         const data = await response.json();
 
-        setProducts(Array.isArray(data) ? data : []);
+        setProducts(
+          Array.isArray(data) ? data : []
+        );
       } catch (error) {
-        console.error('Erro ao carregar produtos:', error);
+        console.error(
+          'Erro ao carregar produtos:',
+          error
+        );
+
+        setProducts([]);
       } finally {
         setLoading(false);
       }
@@ -40,25 +72,59 @@ export default function HomePage() {
   }, []);
 
   const filteredProducts = useMemo(() => {
-    return products.filter((product) => {
-      const nome = product.name?.toLowerCase() || '';
-      const categoria = product.category?.toLowerCase() || '';
+    const termoBusca = search
+      .trim()
+      .toLowerCase();
 
-      const termoBusca = search.toLowerCase().trim();
-      const categoriaSelecionada = selectedCategory
-        .toLowerCase()
-        .trim();
+    return products.filter((product) => {
+      const nome = String(
+        product.name || ''
+      ).toLowerCase();
+
+      const categoria = String(
+        product.category || ''
+      ).toLowerCase();
+
+      const descricao = String(
+        product.description || ''
+      ).toLowerCase();
 
       const matchesSearch =
-        termoBusca === '' || nome.includes(termoBusca);
+        termoBusca === '' ||
+        nome.includes(termoBusca) ||
+        categoria.includes(termoBusca) ||
+        descricao.includes(termoBusca);
+
+      if (!matchesSearch) {
+        return false;
+      }
+
+      if (selectedCategory === 'Todos') {
+        return true;
+      }
+
+      const categoriasAceitas =
+        categoryAliases[selectedCategory] || [
+          selectedCategory
+            .trim()
+            .toLowerCase(),
+        ];
 
       const matchesCategory =
-        categoriaSelecionada === 'todos' ||
-        categoria.includes(categoriaSelecionada);
+        categoriasAceitas.some((alias) => {
+          return (
+            categoria.includes(alias) ||
+            nome.includes(alias)
+          );
+        });
 
-      return matchesSearch && matchesCategory;
+      return matchesCategory;
     });
-  }, [products, search, selectedCategory]);
+  }, [
+    products,
+    search,
+    selectedCategory,
+  ]);
 
   return (
     <main className="min-h-screen bg-zinc-950 text-white">
@@ -71,7 +137,9 @@ export default function HomePage() {
 
       <CategoryBar
         selectedCategory={selectedCategory}
-        onSelectCategory={setSelectedCategory}
+        onSelectCategory={
+          setSelectedCategory
+        }
       />
 
       <section
