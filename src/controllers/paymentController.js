@@ -1,204 +1,155 @@
+const prisma = require("../config/prisma");
+
 const {
-  MercadoPagoConfig,
-  Preference,
-} = require("mercadopago");
+  createPaymentPreference,
+} = require(
+  "../services/mercadoPagoService"
+);
 
-const accessToken =
-  process.env.MERCADO_PAGO_ACCESS_TOKEN;
-
-if (!accessToken) {
-  console.error(
-    "ERRO: MERCADO_PAGO_ACCESS_TOKEN não foi configurado."
-  );
-}
-
-const client = new MercadoPagoConfig({
-  accessToken,
-});
-
-const preference = new Preference(client);
-
-function normalizeUrl(value) {
-  return String(value || "")
-    .trim()
-    .replace(/\/+$/, "");
-}
-
-function isValidHttpUrl(value) {
+const createPreference = async (
+  req,
+  res
+) => {
   try {
-    const parsedUrl = new URL(value);
+    const { orderId } = req.body;
 
-    return (
-      parsedUrl.protocol === "http:" ||
-      parsedUrl.protocol === "https:"
-    );
-  } catch {
-    return false;
-  }
-}
-
-const createPreference = async (req, res) => {
-  try {
-    const { orderId, items } = req.body;
-
-    if (!accessToken) {
-      return res.status(500).json({
-        message:
-          "O Access Token do Mercado Pago não foi configurado.",
+    if (!req.user?.id) {
+      return res.status(401).json({
+        message: "Usuário não autenticado.",
       });
     }
 
     if (!orderId) {
       return res.status(400).json({
-        message: "O ID do pedido é obrigatório.",
+        message:
+          "O ID do pedido é obrigatório.",
       });
     }
 
-    if (!Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({
-        message: "Carrinho vazio ou inválido.",
+    const order =
+      await prisma.order.findFirst({
+        where: {
+          id: String(orderId),
+          userId: req.user.id,
+        },
+
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+            },
+          },
+
+          items: true,
+        },
+      });
+
+    if (!order) {
+      return res.status(404).json({
+        message:
+          "Pedido não encontrado ou não pertence ao usuário autenticado.",
       });
     }
 
-    const validItems = items.map((item) => ({
-      id: String(item.id),
-      title: String(
-        item.title || "Produto Trinity"
-      ).trim(),
-      quantity: Number(item.quantity),
-      unit_price: Number(item.unit_price),
-      currency_id: "BRL",
-    }));
-
-    const hasInvalidItem = validItems.some(
-      (item) =>
-        !item.id ||
-        !item.title ||
-        !Number.isInteger(item.quantity) ||
-        item.quantity <= 0 ||
-        !Number.isFinite(item.unit_price) ||
-        item.unit_price <= 0
-    );
-
-    if (hasInvalidItem) {
+    if (order.status !== "PENDING") {
       return res.status(400).json({
         message:
-          "Um ou mais produtos possuem dados inválidos.",
+          "Somente pedidos pendentes podem iniciar um pagamento.",
       });
     }
-
-    const frontendUrl = normalizeUrl(
-      process.env.FRONTEND_URL ||
-        "http://localhost:3000"
-    );
-
-    if (!isValidHttpUrl(frontendUrl)) {
-      return res.status(500).json({
-        message:
-          "A variável FRONTEND_URL não contém uma URL válida.",
-      });
-    }
-
-    const successUrl = `${frontendUrl}/pagamento/sucesso`;
-    const failureUrl = `${frontendUrl}/pagamento/falha`;
-    const pendingUrl = `${frontendUrl}/pagamento/pendente`;
-
-    const isLocalhost =
-      frontendUrl.includes("localhost") ||
-      frontendUrl.includes("127.0.0.1");
-
-    const preferenceBody = {
-      external_reference: String(orderId),
-
-      items: validItems,
-
-      back_urls: {
-        success: successUrl,
-        failure: failureUrl,
-        pending: pendingUrl,
-      },
-
-      statement_descriptor: "TRINITY",
-    };
-
-    /*
-     * Em localhost, não usamos auto_return.
-     * Em produção, ele retorna automaticamente
-     * para /pagamento/sucesso após aprovação.
-     */
-    if (!isLocalhost) {
-      preferenceBody.auto_return = "approved";
-    }
-
-    const webhookUrl = normalizeUrl(
-      process.env.WEBHOOK_URL
-    );
 
     if (
-      webhookUrl &&
-      isValidHttpUrl(webhookUrl) &&
-      !webhookUrl.includes("localhost")
+      !Array.isArray(order.items) ||
+      order.items.length === 0
     ) {
-      preferenceBody.notification_url =
-        webhookUrl;
-    }
-
-    console.log("Criando preferência:", {
-      orderId,
-      frontendUrl,
-      successUrl,
-      failureUrl,
-      pendingUrl,
-      autoReturn: preferenceBody.auto_return || false,
-      items: validItems.length,
-    });
-
-    const result = await preference.create({
-      body: preferenceBody,
-    });
-
-    const checkoutUrl =
-      result.init_point ||
-      result.sandbox_init_point;
-
-    console.log("Preferência criada:", {
-      preferenceId: result.id,
-      initPoint: result.init_point,
-      sandboxInitPoint:
-        result.sandbox_init_point,
-    });
-
-    if (!checkoutUrl) {
-      return res.status(500).json({
+      return res.status(400).json({
         message:
-          "O Mercado Pago criou a preferência, mas não retornou uma URL de pagamento.",
+          "O pedido não possui itens para pagamento.",
       });
     }
 
+    const calculatedTotal =
+      order.items.reduce(
+        (total, item) =>
+          total +
+          Number(item.unitPrice) *
+            Number(item.quantity),
+        0
+      );
+
+    const orderTotal = Number(order.total);
+
+    const totalsMatch =
+      Math.abs(
+        calculatedTotal - orderTotal
+      ) < 0.01;
+
+    if (!totalsMatch) {
+      console.error(
+        "Total divergente no pedido:",
+        {
+          orderId: order.id,
+          storedTotal: orderTotal,
+          calculatedTotal,
+        }
+      );
+
+      return res.status(409).json({
+        message:
+          "O valor do pedido está inconsistente. Entre em contato com o suporte.",
+      });
+    }
+
+    const preference =
+      await createPaymentPreference({
+        order,
+      });
+
+    await prisma.order.update({
+      where: {
+        id: order.id,
+      },
+
+      data: {
+        preferenceId:
+          preference.preferenceId,
+      },
+    });
+
     return res.status(201).json({
-      id: result.id,
-      init_point: checkoutUrl,
-      sandbox_init_point:
-        result.sandbox_init_point || null,
+      orderId: order.id,
+      preferenceId:
+        preference.preferenceId,
+      checkoutUrl:
+        preference.checkoutUrl,
+      initPoint:
+        preference.initPoint,
+      sandboxInitPoint:
+        preference.sandboxInitPoint,
     });
   } catch (error) {
     console.error(
-      "ERRO MERCADO PAGO:",
-      error?.message || error
+      "Erro ao criar preferência do Mercado Pago:",
+      error
     );
 
     if (error?.cause) {
       console.error(
-        "DETALHES MERCADO PAGO:",
-        JSON.stringify(error.cause, null, 2)
+        "Detalhes do Mercado Pago:",
+        JSON.stringify(
+          error.cause,
+          null,
+          2
+        )
       );
     }
 
     return res.status(500).json({
-      message: "Erro ao criar preferência.",
-      error:
-        error?.message ||
-        "Erro desconhecido do Mercado Pago.",
+      message:
+        error.message ||
+        "Erro ao criar preferência de pagamento.",
     });
   }
 };

@@ -1,14 +1,54 @@
 "use client";
 
 import {
-  ShoppingCart,
-  ShieldCheck,
-  Truck,
-  PackageCheck,
   CreditCard,
+  PackageCheck,
+  ShieldCheck,
+  ShoppingCart,
+  Truck,
 } from "lucide-react";
 
 import VariationSelector from "./VariationSelector";
+
+function formatPrice(value) {
+  const price = Number(value);
+
+  if (!Number.isFinite(price)) {
+    return "R$ 0,00";
+  }
+
+  return price.toLocaleString("pt-BR", {
+    style: "currency",
+    currency: "BRL",
+  });
+}
+
+const benefits = [
+  {
+    title: "Envio para todo o Brasil",
+    description:
+      "Despacho rápido após a confirmação do pagamento.",
+    icon: Truck,
+  },
+  {
+    title: "Pagamento seguro",
+    description:
+      "Mercado Pago com proteção ao comprador.",
+    icon: CreditCard,
+  },
+  {
+    title: "Compra protegida",
+    description:
+      "Seus dados são tratados com segurança.",
+    icon: ShieldCheck,
+  },
+  {
+    title: "Produto original Trinity",
+    description:
+      "Desenvolvido com materiais selecionados.",
+    icon: PackageCheck,
+  },
+];
 
 export default function ProductInfo({
   product,
@@ -18,183 +58,126 @@ export default function ProductInfo({
   onBuyNow,
   adding = false,
 }) {
+  const variations = Array.isArray(product?.variations)
+    ? product.variations
+    : [];
+
+  const stock = Number(selectedVariation?.stock);
+
   const hasStock =
     selectedVariation &&
-    Number(selectedVariation.stock) > 0;
+    Number.isFinite(stock) &&
+    stock > 0;
+
+  const hasVariations = variations.length > 0;
 
   return (
     <div className="space-y-8">
       <div>
-        <span className="rounded-full border border-zinc-700 px-4 py-1 text-xs uppercase tracking-[0.25em] text-zinc-400">
+        <span className="inline-flex rounded-full border border-zinc-700 px-4 py-1 text-xs uppercase tracking-[0.25em] text-zinc-400">
           Trinity Collection
         </span>
 
-        <h1 className="mt-6 text-4xl font-black leading-tight lg:text-5xl">
-          {product.name}
+        <h1 className="mt-6 text-4xl font-black leading-tight text-white lg:text-5xl">
+          {product?.name || "Produto Trinity"}
         </h1>
       </div>
 
-      <div className="flex items-end gap-3">
-        <span className="text-5xl font-black">
-          R${" "}
-          {Number(product.price)
-            .toFixed(2)
-            .replace(".", ",")}
+      <div className="flex flex-wrap items-end gap-3">
+        <span className="text-4xl font-black tracking-tight text-white sm:text-5xl">
+          {formatPrice(product?.price)}
         </span>
 
         <span
-          className={`pb-2 text-sm ${
+          className={`pb-1 text-sm font-medium ${
             hasStock
               ? "text-green-400"
               : "text-red-400"
           }`}
         >
-          {hasStock ? "Em estoque" : "Sem estoque"}
+          {hasStock
+            ? `${stock} ${
+                stock === 1
+                  ? "unidade disponível"
+                  : "unidades disponíveis"
+              }`
+            : "Sem estoque"}
         </span>
       </div>
 
       <p className="max-w-xl text-base leading-8 text-zinc-400">
-        {product.description}
+        {product?.description ||
+          "Descrição indisponível para este produto."}
       </p>
 
-      <VariationSelector
-        variations={product.variations}
-        selectedVariation={selectedVariation}
-        onSelect={onVariationChange}
-      />
+      {hasVariations ? (
+        <VariationSelector
+          variations={variations}
+          selectedVariation={selectedVariation}
+          onSelect={onVariationChange}
+        />
+      ) : (
+        <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-4 text-sm text-zinc-400">
+          Nenhuma variação disponível para este produto.
+        </div>
+      )}
 
       <div className="space-y-4">
         <button
           type="button"
           onClick={onAddToCart}
           disabled={!hasStock || adding}
-          className="
-            flex
-            h-14
-            w-full
-            items-center
-            justify-center
-            gap-3
-            rounded-2xl
-            bg-white
-            text-lg
-            font-bold
-            text-black
-            transition-all
-            duration-300
-            hover:-translate-y-1
-            hover:scale-[1.02]
-            hover:bg-zinc-200
-            active:scale-95
-            disabled:cursor-not-allowed
-            disabled:bg-zinc-700
-            disabled:text-zinc-400
-          "
+          aria-busy={adding}
+          className="flex h-14 w-full items-center justify-center gap-3 rounded-2xl bg-white text-lg font-bold text-black transition-all duration-300 hover:-translate-y-1 hover:scale-[1.02] hover:bg-zinc-200 active:scale-95 disabled:cursor-not-allowed disabled:bg-zinc-700 disabled:text-zinc-400 disabled:hover:translate-y-0 disabled:hover:scale-100"
         >
-          <ShoppingCart size={22} />
+          <ShoppingCart
+            size={22}
+            aria-hidden="true"
+          />
 
           {adding
-            ? "Adicionado ✓"
-            : "Adicionar ao Carrinho"}
+            ? "Adicionando..."
+            : "Adicionar ao carrinho"}
         </button>
 
         <button
           type="button"
           onClick={onBuyNow}
-          disabled={!hasStock}
-          className="
-            h-14
-            w-full
-            rounded-2xl
-            border
-            border-zinc-700
-            font-semibold
-            transition-all
-            duration-300
-            hover:border-white
-            hover:bg-white
-            hover:text-black
-            active:scale-[0.98]
-            disabled:cursor-not-allowed
-            disabled:border-zinc-800
-            disabled:bg-zinc-900
-            disabled:text-zinc-600
-          "
+          disabled={!hasStock || adding}
+          className="h-14 w-full rounded-2xl border border-zinc-700 font-semibold transition-all duration-300 hover:border-white hover:bg-white hover:text-black active:scale-[0.98] disabled:cursor-not-allowed disabled:border-zinc-800 disabled:bg-zinc-900 disabled:text-zinc-600 disabled:hover:bg-zinc-900"
         >
-          Comprar Agora
+          Comprar agora
         </button>
       </div>
 
       <div className="rounded-3xl border border-zinc-800 bg-zinc-900 p-6">
         <div className="space-y-5">
-          <div className="flex items-center gap-4">
-            <Truck
-              className="text-white"
-              size={22}
-            />
+          {benefits.map((benefit) => {
+            const Icon = benefit.icon;
 
-            <div>
-              <p className="font-semibold">
-                Envio para todo o Brasil
-              </p>
+            return (
+              <div
+                key={benefit.title}
+                className="flex items-start gap-4"
+              >
+                <Icon
+                  className="mt-0.5 shrink-0 text-white"
+                  size={22}
+                  aria-hidden="true"
+                />
 
-              <p className="text-sm text-zinc-500">
-                Despacho rápido após confirmação do
-                pagamento.
-              </p>
-            </div>
-          </div>
+                <div>
+                  <p className="font-semibold text-white">
+                    {benefit.title}
+                  </p>
 
-          <div className="flex items-center gap-4">
-            <CreditCard
-              className="text-white"
-              size={22}
-            />
-
-            <div>
-              <p className="font-semibold">
-                Pagamento Seguro
-              </p>
-
-              <p className="text-sm text-zinc-500">
-                Mercado Pago com proteção ao comprador.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <ShieldCheck
-              className="text-white"
-              size={22}
-            />
-
-            <div>
-              <p className="font-semibold">
-                Compra Protegida
-              </p>
-
-              <p className="text-sm text-zinc-500">
-                Seus dados são criptografados.
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <PackageCheck
-              className="text-white"
-              size={22}
-            />
-
-            <div>
-              <p className="font-semibold">
-                Produto Original Trinity
-              </p>
-
-              <p className="text-sm text-zinc-500">
-                Desenvolvido com materiais premium.
-              </p>
-            </div>
-          </div>
+                  <p className="mt-1 text-sm leading-6 text-zinc-500">
+                    {benefit.description}
+                  </p>
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

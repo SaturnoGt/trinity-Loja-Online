@@ -18,7 +18,7 @@ const router = express.Router();
 
 // Cadastro e login
 router.post(
-  "/request-verification",
+  "/request-email-verification",
   requestEmailVerification
 );
 

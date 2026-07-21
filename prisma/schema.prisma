@@ -10,6 +10,9 @@ generator client {
 enum OrderStatus {
   PENDING
   PAID
+  PROCESSING
+  SHIPPED
+  DELIVERED
   CANCELLED
   REFUNDED
 }
@@ -25,6 +28,7 @@ model Product {
   images     Image[]
   variations Variation[]
   orderItems OrderItem[]
+  favorites  Favorite[]
 }
 
 model Image {
@@ -43,7 +47,8 @@ model Variation {
   stock     Int
   productId Int
 
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
 }
 
 model User {
@@ -70,22 +75,43 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  orders Order[]
+  orders    Order[]
+  favorites Favorite[]
+}
+
+model Favorite {
+  id        String   @id @default(uuid())
+  userId    String
+  productId Int
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@index([productId])
 }
 
 model Order {
-  id        String      @id @default(uuid())
-  status    OrderStatus @default(PENDING)
-  total     Float
-  paymentId String?     @unique
+  id             String      @id @default(uuid())
+  status         OrderStatus @default(PENDING)
+  total          Float
+  paymentId      String?     @unique
+  preferenceId   String?
+  stockReducedAt DateTime?
 
   userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   items OrderItem[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([preferenceId])
 }
 
 model OrderItem {
@@ -94,12 +120,21 @@ model OrderItem {
   productId Int
   product   Product @relation(fields: [productId], references: [id])
 
+  variationId Int?
+  variation   Variation? @relation(fields: [variationId], references: [id])
+
   productName String
+  size        String?
+  color       String?
   quantity    Int
   unitPrice   Float
 
   orderId String
   order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([productId])
+  @@index([variationId])
 }
 
 model EmailVerification {

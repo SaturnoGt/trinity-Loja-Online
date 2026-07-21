@@ -3,10 +3,42 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Eye, EyeOff, LockKeyhole, Mail } from 'lucide-react';
+import {
+  Eye,
+  EyeOff,
+  Loader2,
+  LockKeyhole,
+  LogIn,
+  Mail,
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 
 import { useAuth } from '@/context/AuthContext';
+
+const API_URL = (
+  process.env.NEXT_PUBLIC_API_URL ||
+  'http://localhost:3001/api'
+).replace(/\/$/, '');
+
+function isValidEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+async function readResponse(response) {
+  const text = await response.text();
+
+  if (!text) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(
+      `A API retornou uma resposta inválida. Status ${response.status}.`
+    );
+  }
+}
 
 export default function LoginPage() {
   const router = useRouter();
@@ -14,16 +46,28 @@ export default function LoginPage() {
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword, setShowPassword] =
+    useState(false);
   const [loading, setLoading] = useState(false);
 
   async function handleLogin(event) {
     event.preventDefault();
 
-    const normalizedEmail = email.trim().toLowerCase();
+    if (loading) {
+      return;
+    }
+
+    const normalizedEmail = email
+      .trim()
+      .toLowerCase();
 
     if (!normalizedEmail || !password) {
-      toast.error('Preencha e-mail e senha');
+      toast.error('Preencha e-mail e senha.');
+      return;
+    }
+
+    if (!isValidEmail(normalizedEmail)) {
+      toast.error('Informe um e-mail válido.');
       return;
     }
 
@@ -31,10 +75,11 @@ export default function LoginPage() {
       setLoading(true);
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/auth/login`,
+        `${API_URL}/auth/login`,
         {
           method: 'POST',
           headers: {
+            Accept: 'application/json',
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
@@ -44,27 +89,44 @@ export default function LoginPage() {
         }
       );
 
-      const data = await response.json();
+      const data = await readResponse(response);
 
       if (!response.ok) {
         throw new Error(
           data?.error ||
             data?.message ||
-            'Erro ao fazer login'
+            'Não foi possível fazer login.'
         );
       }
 
-      await login(data.token);
+      const token =
+        data?.token ||
+        data?.accessToken;
 
-      toast.success('Login realizado com sucesso');
+      if (!token) {
+        throw new Error(
+          'A API não retornou o token de acesso.'
+        );
+      }
 
-      router.push('/');
+      await login(token);
+
+      toast.success(
+        data?.message ||
+          'Login realizado com sucesso.'
+      );
+
+      router.replace('/');
       router.refresh();
-    } catch (error) {
-      console.error('Erro no login:', error);
+    } catch (requestError) {
+      console.error(
+        'Erro no login:',
+        requestError
+      );
 
       toast.error(
-        error.message || 'Não foi possível entrar'
+        requestError?.message ||
+          'Não foi possível entrar.'
       );
     } finally {
       setLoading(false);
@@ -73,8 +135,12 @@ export default function LoginPage() {
 
   return (
     <main className="flex min-h-[calc(100vh-4rem)] items-center justify-center bg-zinc-950 px-4 py-16 text-white">
-      <section className="w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-900/70 p-8 shadow-2xl shadow-black/30">
+      <section className="w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-900/70 p-6 shadow-2xl shadow-black/30 sm:p-8">
         <div className="mb-8 text-center">
+          <div className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-800 text-zinc-200">
+            <LogIn size={23} />
+          </div>
+
           <p className="mb-2 text-sm font-semibold uppercase tracking-[0.25em] text-zinc-500">
             Trinity
           </p>
@@ -83,14 +149,16 @@ export default function LoginPage() {
             Entrar na conta
           </h1>
 
-          <p className="mt-3 text-sm text-zinc-400">
-            Acesse seus pedidos, favoritos e dados da conta.
+          <p className="mt-3 text-sm leading-6 text-zinc-400">
+            Acesse seus pedidos, favoritos e dados da
+            conta.
           </p>
         </div>
 
         <form
           onSubmit={handleLogin}
           className="space-y-5"
+          noValidate
         >
           <div>
             <label
@@ -108,6 +176,7 @@ export default function LoginPage() {
 
               <input
                 id="email"
+                name="email"
                 type="email"
                 value={email}
                 onChange={(event) =>
@@ -115,7 +184,12 @@ export default function LoginPage() {
                 }
                 placeholder="voce@email.com"
                 autoComplete="email"
-                className="w-full bg-transparent text-white outline-none placeholder:text-zinc-600"
+                autoCapitalize="none"
+                spellCheck={false}
+                inputMode="email"
+                disabled={loading}
+                required
+                className="w-full bg-transparent text-white outline-none placeholder:text-zinc-600 disabled:cursor-not-allowed disabled:opacity-60"
               />
             </div>
           </div>
@@ -145,27 +219,38 @@ export default function LoginPage() {
 
               <input
                 id="password"
-                type={showPassword ? 'text' : 'password'}
+                name="password"
+                type={
+                  showPassword
+                    ? 'text'
+                    : 'password'
+                }
                 value={password}
                 onChange={(event) =>
                   setPassword(event.target.value)
                 }
                 placeholder="Sua senha"
                 autoComplete="current-password"
-                className="w-full bg-transparent text-white outline-none placeholder:text-zinc-600"
+                disabled={loading}
+                required
+                className="w-full bg-transparent text-white outline-none placeholder:text-zinc-600 disabled:cursor-not-allowed disabled:opacity-60"
               />
 
               <button
                 type="button"
                 onClick={() =>
-                  setShowPassword((current) => !current)
+                  setShowPassword(
+                    (current) => !current
+                  )
                 }
+                disabled={loading}
                 aria-label={
                   showPassword
                     ? 'Ocultar senha'
                     : 'Mostrar senha'
                 }
-                className="shrink-0 text-zinc-500 transition hover:text-white"
+                aria-pressed={showPassword}
+                className="shrink-0 text-zinc-500 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {showPassword ? (
                   <EyeOff size={18} />
@@ -179,9 +264,22 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full rounded-2xl bg-white py-3.5 font-bold text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-3.5 font-bold text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {loading ? 'Entrando...' : 'Entrar'}
+            {loading ? (
+              <>
+                <Loader2
+                  size={19}
+                  className="animate-spin"
+                />
+                Entrando...
+              </>
+            ) : (
+              <>
+                <LogIn size={19} />
+                Entrar
+              </>
+            )}
           </button>
         </form>
 

@@ -1,6 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useState,
+} from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -26,6 +30,24 @@ const statusConfig = {
     label: "Pagamento aprovado",
     className:
       "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
+  },
+
+  PROCESSING: {
+    label: "Em preparação",
+    className:
+      "border-sky-500/30 bg-sky-500/10 text-sky-400",
+  },
+
+  SHIPPED: {
+    label: "Enviado",
+    className:
+      "border-indigo-500/30 bg-indigo-500/10 text-indigo-400",
+  },
+
+  DELIVERED: {
+    label: "Entregue",
+    className:
+      "border-lime-500/30 bg-lime-500/10 text-lime-400",
   },
 
   CANCELLED: {
@@ -118,18 +140,33 @@ export default function MeusPedidosPage() {
       return;
     }
 
+    const apiUrl =
+      process.env.NEXT_PUBLIC_API_URL;
+
+    if (!apiUrl) {
+      const message =
+        "A URL da API não foi configurada no frontend.";
+
+      setError(message);
+      setLoading(false);
+      toast.error(message);
+      return;
+    }
+
     try {
       setLoading(true);
       setError("");
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/orders/my-orders`,
+        `${apiUrl}/orders/my-orders`,
         {
           method: "GET",
+
           headers: {
             Accept: "application/json",
             Authorization: `Bearer ${token}`,
           },
+
           cache: "no-store",
         }
       );
@@ -167,7 +204,7 @@ export default function MeusPedidosPage() {
       );
 
       const message =
-        requestError.message ||
+        requestError?.message ||
         "Não foi possível carregar seus pedidos.";
 
       setError(message);
@@ -261,10 +298,17 @@ export default function MeusPedidosPage() {
           <div className="space-y-6">
             {orders.map((order) => {
               const status =
-                statusConfig[order.status] ||
-                statusConfig.PENDING;
+                statusConfig[order.status] || {
+                  label:
+                    order.status ||
+                    "Status desconhecido",
+                  className:
+                    "border-zinc-600 bg-zinc-800 text-zinc-300",
+                };
 
-              const items = Array.isArray(order.items)
+              const items = Array.isArray(
+                order.items
+              )
                 ? order.items
                 : [];
 
@@ -307,6 +351,7 @@ export default function MeusPedidosPage() {
 
                       <p className="mt-2 flex items-center gap-2 text-sm text-zinc-300">
                         <CalendarDays size={16} />
+
                         {formatDate(
                           order.createdAt
                         )}
@@ -331,46 +376,68 @@ export default function MeusPedidosPage() {
                         pedido.
                       </p>
                     ) : (
-                      items.map((item) => (
-                        <div
-                          key={item.id}
-                          className="flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4 sm:flex-row sm:items-center sm:justify-between"
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className="rounded-xl bg-zinc-800 p-3 text-zinc-300">
-                              <Package size={22} />
+                      items.map((item) => {
+                        const quantity = Number(
+                          item.quantity || 1
+                        );
+
+                        const unitPrice = Number(
+                          item.unitPrice || 0
+                        );
+
+                        return (
+                          <div
+                            key={item.id}
+                            className="flex flex-col gap-4 rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4 sm:flex-row sm:items-center sm:justify-between"
+                          >
+                            <div className="flex items-center gap-4">
+                              <div className="rounded-xl bg-zinc-800 p-3 text-zinc-300">
+                                <Package size={22} />
+                              </div>
+
+                              <div>
+                                <p className="font-semibold">
+                                  {item.productName ||
+                                    item.product
+                                      ?.name ||
+                                    "Produto"}
+                                </p>
+
+                                {(item.variation?.size ||
+                                  item.variation
+                                    ?.color) && (
+                                  <p className="mt-1 text-sm text-zinc-400">
+                                    {item.variation
+                                      ?.size || ""}
+
+                                    {item.variation
+                                      ?.size &&
+                                    item.variation
+                                      ?.color
+                                      ? " • "
+                                      : ""}
+
+                                    {item.variation
+                                      ?.color || ""}
+                                  </p>
+                                )}
+
+                                <p className="mt-1 text-sm text-zinc-500">
+                                  Quantidade:{" "}
+                                  {quantity}
+                                </p>
+                              </div>
                             </div>
 
-                            <div>
-                              <p className="font-semibold">
-                                {item.productName ||
-                                  item.product
-                                    ?.name ||
-                                  "Produto"}
-                              </p>
-
-                              <p className="mt-1 text-sm text-zinc-500">
-                                Quantidade:{" "}
-                                {item.quantity ||
-                                  1}
-                              </p>
-                            </div>
+                            <p className="font-bold">
+                              {formatPrice(
+                                unitPrice *
+                                  quantity
+                              )}
+                            </p>
                           </div>
-
-                          <p className="font-bold">
-                            {formatPrice(
-                              Number(
-                                item.unitPrice ||
-                                  0
-                              ) *
-                                Number(
-                                  item.quantity ||
-                                    1
-                                )
-                            )}
-                          </p>
-                        </div>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 </article>
@@ -396,8 +463,8 @@ function EmptyOrders() {
 
       <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-zinc-500">
         Quando você finalizar uma compra, os
-        produtos e o andamento do pedido
-        aparecerão aqui.
+        produtos e o andamento do pedido aparecerão
+        aqui.
       </p>
 
       <Link

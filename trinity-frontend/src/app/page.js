@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { apiFetch } from '@/lib/api';
 
 import HeroBanner from '@/components/home/HeroBanner';
 import SearchBar from '@/components/home/SearchBar';
@@ -39,36 +40,47 @@ export default function HomePage() {
     useState('Todos');
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
+    let active = true;
+
     async function carregarProdutos() {
       try {
-        const response = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/products`
-        );
+        const data = await apiFetch('/products', {
+          cache: 'no-store',
+        });
 
-        if (!response.ok) {
-          throw new Error('Erro ao buscar produtos');
+        if (active) {
+          setProducts(
+            Array.isArray(data) ? data : []
+          );
         }
-
-        const data = await response.json();
-
-        setProducts(
-          Array.isArray(data) ? data : []
-        );
-      } catch (error) {
+      } catch (err) {
         console.error(
           'Erro ao carregar produtos:',
-          error
+          err
         );
 
-        setProducts([]);
+        if (active) {
+          setProducts([]);
+          setError(
+            err?.message ||
+              'Não foi possível carregar os produtos.'
+          );
+        }
       } finally {
-        setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     }
 
     carregarProdutos();
+
+    return () => {
+      active = false;
+    };
   }, []);
 
   const filteredProducts = useMemo(() => {
@@ -110,15 +122,11 @@ export default function HomePage() {
             .toLowerCase(),
         ];
 
-      const matchesCategory =
-        categoriasAceitas.some((alias) => {
-          return (
-            categoria.includes(alias) ||
-            nome.includes(alias)
-          );
-        });
-
-      return matchesCategory;
+      return categoriasAceitas.some(
+        (alias) =>
+          categoria.includes(alias) ||
+          nome.includes(alias)
+      );
     });
   }, [
     products,
@@ -159,10 +167,16 @@ export default function HomePage() {
           </span>
         </div>
 
-        <ProductGrid
-          products={filteredProducts}
-          loading={loading}
-        />
+        {error ? (
+          <div className="rounded-2xl border border-red-500/30 bg-red-500/10 py-10 text-center text-red-300">
+            {error}
+          </div>
+        ) : (
+          <ProductGrid
+            products={filteredProducts}
+            loading={loading}
+          />
+        )}
       </section>
 
       <FeatureSection />

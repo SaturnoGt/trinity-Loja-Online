@@ -17,13 +17,32 @@ export default function ProductCard({ product }) {
     product.images?.[0]?.imageUrl ||
     '/produtos/frente.jpg.jpeg';
 
-  function handleFavorite() {
-    toggleFavorite(product);
+  async function handleFavorite(event) {
+    event.preventDefault();
+    event.stopPropagation();
 
-    if (favorite) {
-      toast.success('Produto removido dos favoritos');
-    } else {
-      toast.success('Produto adicionado aos favoritos');
+    try {
+      const added = await toggleFavorite(product);
+
+      if (added) {
+        toast.success(
+          'Produto adicionado aos favoritos'
+        );
+      } else {
+        toast.success(
+          'Produto removido dos favoritos'
+        );
+      }
+    } catch (error) {
+      console.error(
+        'Erro ao atualizar favorito:',
+        error
+      );
+
+      toast.error(
+        error.message ||
+          'Não foi possível atualizar os favoritos'
+      );
     }
   }
 
@@ -92,7 +111,10 @@ export default function ProductCard({ product }) {
 
         <div className="flex items-center justify-between gap-4">
           <span className="text-2xl font-black">
-            R$ {Number(product.price).toFixed(2).replace('.', ',')}
+            R${' '}
+            {Number(product.price)
+              .toFixed(2)
+              .replace('.', ',')}
           </span>
 
           <span className="whitespace-nowrap text-sm text-zinc-500 transition group-hover:text-white">

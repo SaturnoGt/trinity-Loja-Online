@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import {
@@ -31,30 +31,72 @@ async function readJsonResponse(response) {
 }
 
 function formatPrice(value) {
-  return Number(value || 0).toLocaleString("pt-BR", {
+  const price = Number(value);
+
+  if (!Number.isFinite(price)) {
+    return "R$ 0,00";
+  }
+
+  return price.toLocaleString("pt-BR", {
     style: "currency",
     currency: "BRL",
   });
 }
 
+function getProductImage(product) {
+  if (!Array.isArray(product?.images)) {
+    return "/produtos/frente.jpg.jpeg";
+  }
+
+  return (
+    product.images.find(
+      (productImage) => productImage?.isMain
+    )?.imageUrl ||
+    product.images.find(
+      (productImage) => productImage?.imageUrl
+    )?.imageUrl ||
+    "/produtos/frente.jpg.jpeg"
+  );
+}
+
 export default function CarrinhoPage() {
   const router = useRouter();
 
-  const {
-    cart,
-    removeFromCart,
-  } = useCart();
-
+  const { cart, removeFromCart } = useCart();
   const { token } = useAuth();
 
-  const [checkingOut, setCheckingOut] = useState(false);
+  const [checkingOut, setCheckingOut] =
+    useState(false);
 
-  const total = cart.reduce((accumulator, item) => {
-    const price = Number(item.product?.price || 0);
-    const quantity = Number(item.quantity || 0);
+  const cartItems = Array.isArray(cart)
+    ? cart
+    : [];
 
-    return accumulator + price * quantity;
-  }, 0);
+  const total = useMemo(() => {
+    return cartItems.reduce(
+      (accumulator, item) => {
+        const price = Number(
+          item?.product?.price
+        );
+
+        const quantity = Number(
+          item?.quantity
+        );
+
+        if (
+          !Number.isFinite(price) ||
+          !Number.isFinite(quantity) ||
+          price < 0 ||
+          quantity <= 0
+        ) {
+          return accumulator;
+        }
+
+        return accumulator + price * quantity;
+      },
+      0
+    );
+  }, [cartItems]);
 
   async function handleCheckout() {
     if (checkingOut) {
@@ -70,54 +112,88 @@ export default function CarrinhoPage() {
       return;
     }
 
-    if (!cart.length) {
+    if (!cartItems.length) {
       toast.error("Seu carrinho está vazio.");
       return;
     }
 
-    const invalidItem = cart.find((item) => {
-      const productId = Number(item.product?.id);
-      const quantity = Number(item.quantity);
-      const unitPrice = Number(item.product?.price);
+    const invalidItem = cartItems.find(
+      (item) => {
+        const productId = Number(
+          item?.product?.id
+        );
 
-      return (
-        !Number.isInteger(productId) ||
-        !Number.isInteger(quantity) ||
-        quantity <= 0 ||
-        !Number.isFinite(unitPrice) ||
-        unitPrice <= 0
-      );
-    });
+        const variationId = Number(
+          item?.variation?.id
+        );
+
+        const quantity = Number(
+          item?.quantity
+        );
+
+        const unitPrice = Number(
+          item?.product?.price
+        );
+
+        return (
+          !Number.isInteger(productId) ||
+          productId <= 0 ||
+          !Number.isInteger(variationId) ||
+          variationId <= 0 ||
+          !Number.isInteger(quantity) ||
+          quantity <= 0 ||
+          !Number.isFinite(unitPrice) ||
+          unitPrice <= 0
+        );
+      }
+    );
 
     if (invalidItem) {
       toast.error(
-        "Existe um produto inválido no carrinho."
+        "Existe um produto ou uma variação inválida no carrinho."
       );
+
+      return;
+    }
+
+    const apiUrl =
+      process.env.NEXT_PUBLIC_API_URL?.replace(
+        /\/$/,
+        ""
+      );
+
+    if (!apiUrl) {
+      toast.error(
+        "A URL da API não foi configurada no frontend."
+      );
+
       return;
     }
 
     try {
       setCheckingOut(true);
 
-      /*
-       * 1. Criar pedido no backend
-       */
       const orderResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/orders`,
+        `${apiUrl}/orders`,
         {
           method: "POST",
           headers: {
             Accept: "application/json",
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
-            total,
-            items: cart.map((item) => ({
-              productId: Number(item.product.id),
-              productName: item.product.name,
-              quantity: Number(item.quantity),
-              unitPrice: Number(item.product.price),
+            items: cartItems.map((item) => ({
+              productId: Number(
+                item.product.id
+              ),
+              variationId: Number(
+                item.variation.id
+              ),
+              quantity: Number(
+                item.quantity
+              ),
             })),
           }),
         }
@@ -140,7 +216,8 @@ export default function CarrinhoPage() {
         );
       }
 
-      const order = orderData?.order || orderData;
+      const order =
+        orderData?.order || orderData;
 
       if (!order?.id) {
         throw new Error(
@@ -148,35 +225,30 @@ export default function CarrinhoPage() {
         );
       }
 
-      /*
-       * 2. Criar preferência de pagamento
-       */
       const paymentResponse = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/payment/create-preference`,
+        `${apiUrl}/payment/create-preference`,
         {
           method: "POST",
           headers: {
             Accept: "application/json",
-            "Content-Type": "application/json",
+            "Content-Type":
+              "application/json",
             Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             orderId: order.id,
-
-            items: cart.map((item) => ({
-              id: String(item.product.id),
-              title: item.product.name,
-              quantity: Number(item.quantity),
-              unit_price: Number(item.product.price),
-            })),
           }),
         }
       );
 
       const paymentData =
-        await readJsonResponse(paymentResponse);
+        await readJsonResponse(
+          paymentResponse
+        );
 
-      if (paymentResponse.status === 401) {
+      if (
+        paymentResponse.status === 401
+      ) {
         throw new Error(
           "Sua sessão expirou. Entre novamente."
         );
@@ -191,12 +263,14 @@ export default function CarrinhoPage() {
       }
 
       const checkoutUrl =
-        paymentData?.init_point ||
-        paymentData?.sandbox_init_point;
+        paymentData?.checkoutUrl;
 
-      if (!checkoutUrl) {
+      if (
+        !checkoutUrl ||
+        typeof checkoutUrl !== "string"
+      ) {
         console.error(
-          "Resposta do pagamento sem URL:",
+          "Resposta do pagamento sem checkoutUrl:",
           paymentData
         );
 
@@ -209,18 +283,17 @@ export default function CarrinhoPage() {
         "Redirecionando para o Mercado Pago..."
       );
 
-      /*
-       * Não limpa o carrinho agora.
-       * Vamos limpar somente depois que o pagamento
-       * for aprovado.
-       */
       window.location.assign(checkoutUrl);
     } catch (error) {
-      console.error("Erro no checkout:", error);
+      console.error(
+        "Erro no checkout:",
+        error
+      );
 
       toast.error(
-        error.message ||
-          "Não foi possível finalizar a compra."
+        error instanceof Error
+          ? error.message
+          : "Não foi possível finalizar a compra."
       );
     } finally {
       setCheckingOut(false);
@@ -240,15 +313,18 @@ export default function CarrinhoPage() {
           </h1>
 
           <p className="mt-3 text-zinc-400">
-            Revise os produtos antes de seguir para o
-            pagamento.
+            Revise os produtos antes de seguir
+            para o pagamento.
           </p>
         </header>
 
-        {cart.length === 0 ? (
-          <section className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-12 text-center">
+        {cartItems.length === 0 ? (
+          <section className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-8 text-center sm:p-12">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-800 text-zinc-300">
-              <ShoppingBag size={30} />
+              <ShoppingBag
+                size={30}
+                aria-hidden="true"
+              />
             </div>
 
             <h2 className="mt-6 text-2xl font-bold">
@@ -256,12 +332,15 @@ export default function CarrinhoPage() {
             </h2>
 
             <p className="mt-3 text-zinc-500">
-              Escolha um produto para continuar sua compra.
+              Escolha um produto para continuar
+              sua compra.
             </p>
 
             <button
               type="button"
-              onClick={() => router.push("/#produtos")}
+              onClick={() =>
+                router.push("/#produtos")
+              }
               className="mt-7 rounded-xl bg-white px-6 py-3 font-bold text-black transition hover:bg-zinc-200"
             >
               Ver produtos
@@ -269,55 +348,84 @@ export default function CarrinhoPage() {
           </section>
         ) : (
           <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
-            <section className="space-y-5">
-              {cart.map((item) => {
-                const image =
-                  item.product.images?.find(
-                    (productImage) =>
-                      productImage.isMain
-                  )?.imageUrl ||
-                  item.product.images?.[0]?.imageUrl ||
-                  "/produtos/frente.jpg.jpeg";
+            <section
+              aria-label="Produtos no carrinho"
+              className="space-y-5"
+            >
+              {cartItems.map((item) => {
+                const product =
+                  item?.product || {};
+
+                const variation =
+                  item?.variation || null;
+
+                const quantity = Number(
+                  item?.quantity
+                );
 
                 const itemTotal =
-                  Number(item.product.price) *
-                  Number(item.quantity);
+                  Number(product.price) *
+                  quantity;
+
+                const image =
+                  getProductImage(product);
 
                 return (
                   <article
-                    key={`${item.product.id}-${item.variation?.id || "default"}`}
+                    key={`${product.id}-${variation?.id || "default"}`}
                     className="flex flex-col gap-5 rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5 transition hover:border-zinc-600 sm:flex-row sm:items-center"
                   >
                     <Image
                       src={image}
-                      alt={item.product.name}
+                      alt={
+                        product.name ||
+                        "Produto Trinity"
+                      }
                       width={128}
                       height={128}
+                      sizes="128px"
                       className="aspect-square h-32 w-32 rounded-2xl object-cover"
                     />
 
                     <div className="min-w-0 flex-1">
-                      <h2 className="text-xl font-bold">
-                        {item.product.name}
+                      <h2 className="break-words text-xl font-bold">
+                        {product.name ||
+                          "Produto"}
                       </h2>
 
-                      {item.variation && (
+                      {variation && (
                         <p className="mt-2 text-zinc-400">
-                          {item.variation.size}
-                          {item.variation.color
-                            ? ` • ${item.variation.color}`
+                          {variation.size ||
+                            "Tamanho único"}
+
+                          {variation.color
+                            ? ` • ${variation.color}`
                             : ""}
                         </p>
                       )}
 
                       <p className="mt-2 text-sm text-zinc-500">
-                        Quantidade: {item.quantity}
+                        Quantidade:{" "}
+                        {Number.isFinite(
+                          quantity
+                        )
+                          ? quantity
+                          : 0}
+                      </p>
+
+                      <p className="mt-1 text-sm text-zinc-500">
+                        Valor unitário:{" "}
+                        {formatPrice(
+                          product.price
+                        )}
                       </p>
                     </div>
 
                     <div className="sm:text-right">
                       <p className="text-xl font-black">
-                        {formatPrice(itemTotal)}
+                        {formatPrice(
+                          itemTotal
+                        )}
                       </p>
 
                       <button
@@ -325,13 +433,21 @@ export default function CarrinhoPage() {
                         disabled={checkingOut}
                         onClick={() =>
                           removeFromCart(
-                            item.product.id,
-                            item.variation?.id
+                            product.id,
+                            variation?.id
                           )
                         }
+                        aria-label={`Remover ${
+                          product.name ||
+                          "produto"
+                        } do carrinho`}
                         className="mt-4 inline-flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 transition hover:border-red-500 hover:bg-red-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                       >
-                        <Trash2 size={16} />
+                        <Trash2
+                          size={16}
+                          aria-hidden="true"
+                        />
+
                         Remover
                       </button>
                     </div>
@@ -348,11 +464,15 @@ export default function CarrinhoPage() {
               <div className="mt-7 space-y-4">
                 <div className="flex justify-between gap-4 text-zinc-400">
                   <span>Subtotal</span>
-                  <span>{formatPrice(total)}</span>
+
+                  <span>
+                    {formatPrice(total)}
+                  </span>
                 </div>
 
                 <div className="flex justify-between gap-4 text-zinc-400">
                   <span>Frete</span>
+
                   <span className="font-semibold text-emerald-400">
                     Grátis
                   </span>
@@ -374,28 +494,39 @@ export default function CarrinhoPage() {
               <button
                 type="button"
                 onClick={handleCheckout}
-                disabled={checkingOut}
+                disabled={
+                  checkingOut ||
+                  cartItems.length === 0 ||
+                  total <= 0
+                }
+                aria-busy={checkingOut}
                 className="mt-8 flex w-full items-center justify-center gap-3 rounded-2xl bg-white py-4 text-lg font-bold text-black transition hover:-translate-y-1 hover:bg-zinc-200 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-60"
               >
                 {checkingOut ? (
                   <>
                     <LoaderCircle
                       size={21}
+                      aria-hidden="true"
                       className="animate-spin"
                     />
+
                     Preparando pagamento...
                   </>
                 ) : (
                   <>
-                    <CreditCard size={21} />
+                    <CreditCard
+                      size={21}
+                      aria-hidden="true"
+                    />
+
                     Finalizar compra
                   </>
                 )}
               </button>
 
               <p className="mt-4 text-center text-xs leading-5 text-zinc-500">
-                Você será redirecionado para o ambiente seguro
-                do Mercado Pago.
+                Você será redirecionado para o
+                ambiente seguro do Mercado Pago.
               </p>
             </aside>
           </div>

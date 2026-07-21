@@ -1,55 +1,164 @@
-"use client";
+'use client';
 
-import Link from "next/link";
+import { useEffect, useState } from 'react';
+import {
+  usePathname,
+  useRouter,
+} from 'next/navigation';
 
-export default function AdminLayout({ children }) {
+import { useAuth } from '@/context/AuthContext';
+
+import AdminSidebar from './components/AdminSidebar';
+import AdminHeader from './components/AdminHeader';
+
+export default function AdminLayout({
+  children,
+}) {
+  const pathname = usePathname();
+  const router = useRouter();
+
+  const {
+    user,
+    loading,
+    isAuthenticated,
+    logout,
+  } = useAuth();
+
+  const [menuOpen, setMenuOpen] =
+    useState(false);
+
+  const isAdmin = user?.role === 'ADMIN';
+
+  useEffect(() => {
+    if (loading) return;
+
+    if (!isAuthenticated) {
+      router.replace(
+        `/login?redirect=${encodeURIComponent(
+          pathname
+        )}`
+      );
+      return;
+    }
+
+    if (!isAdmin) {
+      router.replace('/');
+    }
+  }, [
+    loading,
+    isAuthenticated,
+    isAdmin,
+    pathname,
+    router,
+  ]);
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+
+    const previousOverflow =
+      document.body.style.overflow;
+
+    document.body.style.overflow = 'hidden';
+
+    function handleEscape(event) {
+      if (event.key === 'Escape') {
+        setMenuOpen(false);
+      }
+    }
+
+    window.addEventListener(
+      'keydown',
+      handleEscape
+    );
+
+    return () => {
+      document.body.style.overflow =
+        previousOverflow;
+
+      window.removeEventListener(
+        'keydown',
+        handleEscape
+      );
+    };
+  }, [menuOpen]);
+
+  function handleLogout() {
+    logout();
+    router.replace('/login');
+  }
+
+  if (loading) {
+    return <AdminLoading />;
+  }
+
+  if (!isAuthenticated || !isAdmin) {
+    return <AdminLoading />;
+  }
+
   return (
-    <div className="flex min-h-screen bg-zinc-950 text-white">
+    <div className="min-h-screen bg-zinc-950 text-white">
+      <AdminHeader
+        pathname={pathname}
+        user={user}
+        onOpenMenu={() =>
+          setMenuOpen(true)
+        }
+      />
 
-      <aside className="w-64 border-r border-zinc-800 bg-zinc-900 p-6">
+      {menuOpen && (
+        <>
+          <button
+            type="button"
+            onClick={() =>
+              setMenuOpen(false)
+            }
+            className="fixed inset-0 z-40 bg-black/70 backdrop-blur-sm lg:hidden"
+            aria-label="Fechar menu"
+          />
 
-        <h1 className="mb-10 text-2xl font-bold">
-          Trinity Admin
-        </h1>
+          <div className="fixed inset-y-0 left-0 z-50 w-[min(20rem,86vw)] lg:hidden">
+            <AdminSidebar
+              pathname={pathname}
+              user={user}
+              onLogout={handleLogout}
+              mobile
+              onClose={() =>
+                setMenuOpen(false)
+              }
+            />
+          </div>
+        </>
+      )}
 
-        <nav className="space-y-3">
+      <div className="mx-auto flex max-w-[1700px]">
+        <AdminSidebar
+          pathname={pathname}
+          user={user}
+          onLogout={handleLogout}
+        />
 
-          <Link
-            href="/admin"
-            className="block rounded-lg px-4 py-3 hover:bg-zinc-800"
-          >
-            Dashboard
-          </Link>
+        <main className="min-w-0 flex-1 p-5 sm:p-6 lg:p-8">
+          {children}
+        </main>
+      </div>
+    </div>
+  );
+}
 
-          <Link
-            href="/admin/produtos"
-            className="block rounded-lg px-4 py-3 hover:bg-zinc-800"
-          >
-            Produtos
-          </Link>
+function AdminLoading() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-zinc-950">
+      <div className="text-center">
+        <div className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-zinc-800 border-t-white" />
 
-          <Link
-            href="/admin/pedidos"
-            className="block rounded-lg px-4 py-3 hover:bg-zinc-800"
-          >
-            Pedidos
-          </Link>
-
-          <Link
-            href="/admin/usuarios"
-            className="block rounded-lg px-4 py-3 hover:bg-zinc-800"
-          >
-            Usuários
-          </Link>
-
-        </nav>
-
-      </aside>
-
-      <main className="flex-1 p-8">
-        {children}
-      </main>
-
+        <p className="mt-5 text-sm font-semibold text-zinc-400">
+          Verificando acesso administrativo...
+        </p>
+      </div>
     </div>
   );
 }

@@ -1,8 +1,18 @@
 const express = require("express");
+
+const {
+  mercadoPagoWebhook,
+} = require("../controllers/webhookController");
+
 const router = express.Router();
 
-const { handleWebhook } = require("../controllers/webhookController");
-
-router.post("/mercadopago", handleWebhook);
+/*
+ * Mercado Pago
+ * POST /api/webhook/mercadopago
+ */
+router.post(
+  "/mercadopago",
+  mercadoPagoWebhook
+);
 
 module.exports = router;
