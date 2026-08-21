@@ -5,13 +5,17 @@ import {
   useMemo,
   useState,
 } from 'react';
+
 import Link from 'next/link';
+
 import {
   usePathname,
   useRouter,
 } from 'next/navigation';
+
 import {
   Heart,
+  LayoutDashboard,
   LogOut,
   Menu,
   Search,
@@ -33,8 +37,11 @@ export default function Navbar() {
   const pathname = usePathname();
 
   const { cart } = useCart();
+
   const { favorites } = useFavorites();
+
   const {
+    user,
     isAuthenticated,
     loading: authLoading,
     logout,
@@ -42,38 +49,49 @@ export default function Navbar() {
 
   const [menuOpen, setMenuOpen] =
     useState(false);
+
   const [scrolled, setScrolled] =
     useState(false);
-  const [search, setSearch] = useState('');
+
+  const [search, setSearch] =
+    useState('');
+
+  const isAdmin =
+    isAuthenticated &&
+    user?.role === 'ADMIN';
 
   const totalItems = useMemo(() => {
     if (!Array.isArray(cart)) {
       return 0;
     }
 
-    return cart.reduce((total, item) => {
-      const quantity = Number(
-        item?.quantity || 0
-      );
+    return cart.reduce(
+      (total, item) => {
+        const quantity = Number(
+          item?.quantity || 0
+        );
 
-      return (
-        total +
-        (Number.isFinite(quantity)
-          ? Math.max(quantity, 0)
-          : 0)
-      );
-    }, 0);
+        return (
+          total +
+          (Number.isFinite(quantity)
+            ? Math.max(quantity, 0)
+            : 0)
+        );
+      },
+      0
+    );
   }, [cart]);
 
-  const totalFavorites = Array.isArray(
-    favorites
-  )
-    ? favorites.length
-    : 0;
+  const totalFavorites =
+    Array.isArray(favorites)
+      ? favorites.length
+      : 0;
 
   useEffect(() => {
     function handleScroll() {
-      setScrolled(window.scrollY > 10);
+      setScrolled(
+        window.scrollY > 10
+      );
     }
 
     handleScroll();
@@ -107,12 +125,15 @@ export default function Navbar() {
       document.body.style.overflow;
 
     function handleKeyDown(event) {
-      if (event.key === 'Escape') {
+      if (
+        event.key === 'Escape'
+      ) {
         setMenuOpen(false);
       }
     }
 
-    document.body.style.overflow = 'hidden';
+    document.body.style.overflow =
+      'hidden';
 
     window.addEventListener(
       'keydown',
@@ -134,9 +155,11 @@ export default function Navbar() {
     setMenuOpen(false);
   }
 
-  function handleLogout() {
-    logout();
+  async function handleLogout() {
+    await logout();
+
     closeMenu();
+
     router.replace('/');
   }
 
@@ -150,7 +173,9 @@ export default function Navbar() {
     }
 
     router.push(
-      `/busca?q=${encodeURIComponent(term)}`
+      `/busca?q=${encodeURIComponent(
+        term
+      )}`
     );
 
     setSearch('');
@@ -162,7 +187,9 @@ export default function Navbar() {
       return pathname === '/';
     }
 
-    return pathname.startsWith(href);
+    return pathname.startsWith(
+      href
+    );
   }
 
   return (
@@ -179,18 +206,20 @@ export default function Navbar() {
             href="/"
             onClick={closeMenu}
             aria-label="Ir para a página inicial"
-            className="shrink-0 text-xl font-black tracking-[0.35em] transition hover:opacity-80 sm:text-2xl"
+            className="shrink-0 text-xl font-black tracking-[0.35em] text-white transition hover:opacity-80 sm:text-2xl"
           >
             TRINITY
           </Link>
 
           <nav
             aria-label="Navegação principal"
-            className="hidden items-center gap-8 md:flex"
+            className="hidden items-center gap-7 md:flex"
           >
             <DesktopLink
               href="/"
-              active={isCurrentRoute('/')}
+              active={isCurrentRoute(
+                '/'
+              )}
             >
               Início
             </DesktopLink>
@@ -212,6 +241,24 @@ export default function Navbar() {
                 Pedidos
               </DesktopLink>
             )}
+
+            {isAdmin && (
+              <Link
+                href="/admin"
+                className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-bold transition ${
+                  pathname.startsWith(
+                    '/admin'
+                  )
+                    ? 'border-white bg-white text-black'
+                    : 'border-zinc-700 bg-zinc-900 text-white hover:border-white hover:bg-white hover:text-black'
+                }`}
+              >
+                <LayoutDashboard
+                  size={17}
+                />
+                Painel Admin
+              </Link>
+            )}
           </nav>
 
           <div className="hidden items-center gap-3 md:flex">
@@ -230,7 +277,9 @@ export default function Navbar() {
                 type="search"
                 value={search}
                 onChange={(event) =>
-                  setSearch(event.target.value)
+                  setSearch(
+                    event.target.value
+                  )
                 }
                 placeholder="Buscar..."
                 aria-label="Buscar produtos"
@@ -249,7 +298,9 @@ export default function Navbar() {
             <IconLink
               href="/favoritos"
               label="Abrir favoritos"
-              counter={totalFavorites}
+              counter={
+                totalFavorites
+              }
               active={isCurrentRoute(
                 '/favoritos'
               )}
@@ -285,13 +336,17 @@ export default function Navbar() {
                   <Link
                     href="/perfil"
                     aria-current={
-                      isCurrentRoute('/perfil')
+                      isCurrentRoute(
+                        '/perfil'
+                      )
                         ? 'page'
                         : undefined
                     }
                     className={`transition ${
-                      isCurrentRoute('/perfil')
-                        ? 'text-white'
+                      isCurrentRoute(
+                        '/perfil'
+                      )
+                        ? 'font-semibold text-white'
                         : 'text-zinc-300 hover:text-white'
                     }`}
                   >
@@ -300,8 +355,10 @@ export default function Navbar() {
 
                   <button
                     type="button"
-                    onClick={handleLogout}
-                    className="rounded-xl bg-white px-5 py-2 font-semibold text-black transition duration-300 hover:scale-105 hover:bg-zinc-200 active:scale-95"
+                    onClick={
+                      handleLogout
+                    }
+                    className="rounded-xl border border-zinc-700 bg-zinc-900 px-5 py-2 font-semibold text-white transition hover:border-red-500/50 hover:bg-red-500/10 hover:text-red-300 active:scale-95"
                   >
                     Sair
                   </button>
@@ -320,7 +377,9 @@ export default function Navbar() {
             <IconLink
               href="/favoritos"
               label="Abrir favoritos"
-              counter={totalFavorites}
+              counter={
+                totalFavorites
+              }
               mobile
               active={isCurrentRoute(
                 '/favoritos'
@@ -365,9 +424,11 @@ export default function Navbar() {
                   ? 'Fechar menu'
                   : 'Abrir menu'
               }
-              aria-expanded={menuOpen}
+              aria-expanded={
+                menuOpen
+              }
               aria-controls="mobile-menu"
-              className="rounded-xl border border-zinc-800 p-2.5 transition hover:border-white hover:bg-zinc-900"
+              className="rounded-xl border border-zinc-800 p-2.5 text-white transition hover:border-white hover:bg-zinc-900"
             >
               {menuOpen ? (
                 <X
@@ -407,7 +468,9 @@ export default function Navbar() {
       >
         <div className="flex min-h-full flex-col">
           <form
-            onSubmit={handleSearch}
+            onSubmit={
+              handleSearch
+            }
             role="search"
             className="flex items-center gap-3 rounded-2xl border border-zinc-800 bg-zinc-900 px-4 py-3 focus-within:border-white"
           >
@@ -421,7 +484,9 @@ export default function Navbar() {
               type="search"
               value={search}
               onChange={(event) =>
-                setSearch(event.target.value)
+                setSearch(
+                  event.target.value
+                )
               }
               placeholder="Buscar produtos..."
               aria-label="Buscar produtos"
@@ -441,29 +506,66 @@ export default function Navbar() {
             </button>
           </form>
 
+          {isAdmin && (
+            <div className="mt-6 rounded-3xl border border-violet-500/20 bg-violet-500/10 p-4">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-violet-300">
+                Conta administrativa
+              </p>
+
+              <p className="mt-2 text-sm text-zinc-300">
+                Acesse a gestão da
+                loja diretamente por
+                aqui.
+              </p>
+
+              <Link
+                href="/admin"
+                onClick={
+                  closeMenu
+                }
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 font-bold text-black transition hover:bg-zinc-200"
+              >
+                <LayoutDashboard
+                  size={18}
+                />
+                Abrir Painel Admin
+              </Link>
+            </div>
+          )}
+
           <nav
             aria-label="Navegação móvel"
             className="mt-8 flex flex-col gap-2"
           >
             <MobileLink
               href="/"
-              onClick={closeMenu}
-              active={isCurrentRoute('/')}
+              onClick={
+                closeMenu
+              }
+              active={isCurrentRoute(
+                '/'
+              )}
             >
               Início
             </MobileLink>
 
             <MobileLink
               href="/#produtos"
-              onClick={closeMenu}
+              onClick={
+                closeMenu
+              }
             >
               Produtos
             </MobileLink>
 
             <MobileLink
               href="/favoritos"
-              onClick={closeMenu}
-              counter={totalFavorites}
+              onClick={
+                closeMenu
+              }
+              counter={
+                totalFavorites
+              }
               active={isCurrentRoute(
                 '/favoritos'
               )}
@@ -473,8 +575,12 @@ export default function Navbar() {
 
             <MobileLink
               href="/carrinho"
-              onClick={closeMenu}
-              counter={totalItems}
+              onClick={
+                closeMenu
+              }
+              counter={
+                totalItems
+              }
               active={isCurrentRoute(
                 '/carrinho'
               )}
@@ -487,7 +593,9 @@ export default function Navbar() {
                 <>
                   <MobileLink
                     href="/perfil"
-                    onClick={closeMenu}
+                    onClick={
+                      closeMenu
+                    }
                     icon={
                       <User
                         size={19}
@@ -503,13 +611,34 @@ export default function Navbar() {
 
                   <MobileLink
                     href="/meus-pedidos"
-                    onClick={closeMenu}
+                    onClick={
+                      closeMenu
+                    }
                     active={isCurrentRoute(
                       '/meus-pedidos'
                     )}
                   >
                     Meus pedidos
                   </MobileLink>
+
+                  {isAdmin && (
+                    <MobileLink
+                      href="/admin"
+                      onClick={
+                        closeMenu
+                      }
+                      icon={
+                        <LayoutDashboard
+                          size={19}
+                        />
+                      }
+                      active={isCurrentRoute(
+                        '/admin'
+                      )}
+                    >
+                      Painel Admin
+                    </MobileLink>
+                  )}
                 </>
               )}
           </nav>
@@ -519,8 +648,10 @@ export default function Navbar() {
               (isAuthenticated ? (
                 <button
                   type="button"
-                  onClick={handleLogout}
-                  className="flex w-full items-center justify-center gap-2 rounded-2xl bg-white py-3.5 font-bold text-black transition hover:bg-zinc-200 active:scale-[0.98]"
+                  onClick={
+                    handleLogout
+                  }
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-500/30 bg-red-500/10 py-3.5 font-bold text-red-300 transition hover:bg-red-500 hover:text-white active:scale-[0.98]"
                 >
                   <LogOut
                     size={19}
@@ -531,7 +662,9 @@ export default function Navbar() {
               ) : (
                 <Link
                   href="/login"
-                  onClick={closeMenu}
+                  onClick={
+                    closeMenu
+                  }
                   className="block rounded-2xl bg-white py-3.5 text-center font-bold text-black transition hover:bg-zinc-200 active:scale-[0.98]"
                 >
                   Entrar
@@ -553,7 +686,9 @@ function DesktopLink({
     <Link
       href={href}
       aria-current={
-        active ? 'page' : undefined
+        active
+          ? 'page'
+          : undefined
       }
       className={`transition ${
         active
@@ -580,15 +715,21 @@ function IconLink({
       aria-label={
         counter > 0
           ? `${label}. ${counter} ${
-              counter === 1 ? 'item' : 'itens'
+              counter === 1
+                ? 'item'
+                : 'itens'
             }`
           : label
       }
       aria-current={
-        active ? 'page' : undefined
+        active
+          ? 'page'
+          : undefined
       }
-      className={`relative rounded-xl border transition duration-300 ${
-        mobile ? 'p-2.5' : 'p-3'
+      className={`relative rounded-xl border text-white transition duration-300 ${
+        mobile
+          ? 'p-2.5'
+          : 'p-3'
       } ${
         active
           ? 'border-white bg-zinc-900 text-white'
@@ -606,7 +747,9 @@ function IconLink({
               : '-right-2 -top-2 h-5 min-w-5 text-xs'
           }`}
         >
-          {formatCounter(counter)}
+          {formatCounter(
+            counter
+          )}
         </span>
       )}
     </Link>
@@ -626,7 +769,9 @@ function MobileLink({
       href={href}
       onClick={onClick}
       aria-current={
-        active ? 'page' : undefined
+        active
+          ? 'page'
+          : undefined
       }
       className={`flex items-center justify-between rounded-2xl px-4 py-3.5 text-lg font-semibold transition ${
         active
@@ -644,7 +789,9 @@ function MobileLink({
           aria-hidden="true"
           className="flex h-6 min-w-6 items-center justify-center rounded-full bg-red-500 px-2 text-xs font-bold text-white"
         >
-          {formatCounter(counter)}
+          {formatCounter(
+            counter
+          )}
         </span>
       )}
     </Link>

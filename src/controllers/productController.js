@@ -76,20 +76,90 @@ function normalizePrice(value) {
     typeof value === "string" &&
     value.trim().includes(",")
   ) {
-    value = value.trim().replace(",", ".");
+    value = value
+      .trim()
+      .replace(",", ".");
   }
 
   const price = Number(value);
 
-  if (!Number.isFinite(price) || price < 0) {
-    throw new ProductError("Preço inválido.");
+  if (
+    !Number.isFinite(price) ||
+    price < 0
+  ) {
+    throw new ProductError(
+      "Preço inválido."
+    );
   }
 
   return price;
 }
 
+function normalizeShippingDimension(
+  value,
+  fieldName
+) {
+  if (
+    value === undefined ||
+    value === null ||
+    String(value).trim() === ""
+  ) {
+    throw new ProductError(
+      `${fieldName} é obrigatório.`
+    );
+  }
+
+  const normalizedValue =
+    typeof value === "string"
+      ? value
+          .trim()
+          .replace(",", ".")
+      : value;
+
+  const number =
+    Number(normalizedValue);
+
+  if (
+    !Number.isFinite(number) ||
+    number <= 0
+  ) {
+    throw new ProductError(
+      `${fieldName} precisa ser maior que zero.`
+    );
+  }
+
+  return number;
+}
+
+function normalizeShippingData(body = {}) {
+  return {
+    weight: normalizeShippingDimension(
+      body.weight,
+      "O peso"
+    ),
+
+    width: normalizeShippingDimension(
+      body.width,
+      "A largura"
+    ),
+
+    height: normalizeShippingDimension(
+      body.height,
+      "A altura"
+    ),
+
+    length: normalizeShippingDimension(
+      body.length,
+      "O comprimento"
+    ),
+  };
+}
+
 function normalizeImages(images) {
-  if (images === undefined || images === null) {
+  if (
+    images === undefined ||
+    images === null
+  ) {
     return [];
   }
 
@@ -99,26 +169,35 @@ function normalizeImages(images) {
     );
   }
 
-  const normalizedImages = images.map(
-    (image, index) => {
-      const imageUrl = normalizeText(
-        image?.imageUrl
-      );
+  const normalizedImages =
+    images.map(
+      (image, index) => {
+        const imageUrl =
+          normalizeText(
+            image?.imageUrl
+          );
 
-      if (!imageUrl) {
-        throw new ProductError(
-          `A imagem ${index + 1} possui uma URL inválida.`
-        );
+        if (!imageUrl) {
+          throw new ProductError(
+            `A imagem ${
+              index + 1
+            } possui uma URL inválida.`
+          );
+        }
+
+        return {
+          imageUrl,
+
+          isMain: Boolean(
+            image?.isMain
+          ),
+        };
       }
+    );
 
-      return {
-        imageUrl,
-        isMain: Boolean(image?.isMain),
-      };
-    }
-  );
-
-  if (normalizedImages.length === 0) {
+  if (
+    normalizedImages.length === 0
+  ) {
     return [];
   }
 
@@ -135,12 +214,16 @@ function normalizeImages(images) {
   return normalizedImages.map(
     (image, index) => ({
       ...image,
-      isMain: index === mainIndex,
+
+      isMain:
+        index === mainIndex,
     })
   );
 }
 
-function normalizeVariations(variations) {
+function normalizeVariations(
+  variations
+) {
   if (
     variations === undefined ||
     variations === null
@@ -154,70 +237,96 @@ function normalizeVariations(variations) {
     );
   }
 
-  const uniqueVariations = new Set();
+  const uniqueVariations =
+    new Set();
 
-  return variations.map((variation, index) => {
-    const size = normalizeText(
-      variation?.size
-    );
-
-    const color = normalizeText(
-      variation?.color
-    );
-
-    const stock = Number(variation?.stock);
-
-    if (!size) {
-      throw new ProductError(
-        `O tamanho da variação ${index + 1} é obrigatório.`
+  return variations.map(
+    (variation, index) => {
+      const size = normalizeText(
+        variation?.size
       );
-    }
 
-    if (!color) {
-      throw new ProductError(
-        `A cor da variação ${index + 1} é obrigatória.`
+      const color = normalizeText(
+        variation?.color
       );
-    }
 
-    if (
-      !Number.isInteger(stock) ||
-      stock < 0
-    ) {
-      throw new ProductError(
-        `O estoque da variação ${index + 1} é inválido.`
+      const stock = Number(
+        variation?.stock
       );
-    }
 
-    const variationKey = `${size.toLocaleLowerCase(
-      "pt-BR"
-    )}:${color.toLocaleLowerCase("pt-BR")}`;
+      if (!size) {
+        throw new ProductError(
+          `O tamanho da variação ${
+            index + 1
+          } é obrigatório.`
+        );
+      }
 
-    if (uniqueVariations.has(variationKey)) {
-      throw new ProductError(
-        `A variação de tamanho ${size} e cor ${color} está duplicada.`
+      if (!color) {
+        throw new ProductError(
+          `A cor da variação ${
+            index + 1
+          } é obrigatória.`
+        );
+      }
+
+      if (
+        !Number.isInteger(stock) ||
+        stock < 0
+      ) {
+        throw new ProductError(
+          `O estoque da variação ${
+            index + 1
+          } é inválido.`
+        );
+      }
+
+      const variationKey =
+        `${size.toLocaleLowerCase(
+          "pt-BR"
+        )}:${color.toLocaleLowerCase(
+          "pt-BR"
+        )}`;
+
+      if (
+        uniqueVariations.has(
+          variationKey
+        )
+      ) {
+        throw new ProductError(
+          `A variação de tamanho ${size} e cor ${color} está duplicada.`
+        );
+      }
+
+      uniqueVariations.add(
+        variationKey
       );
+
+      return {
+        size,
+        color,
+        stock,
+      };
     }
-
-    uniqueVariations.add(variationKey);
-
-    return {
-      size,
-      color,
-      stock,
-    };
-  });
+  );
 }
 
-function normalizeProductData(body = {}) {
-  const name = normalizeText(body.name);
-
-  const description = normalizeText(
-    body.description
+function normalizeProductData(
+  body = {}
+) {
+  const name = normalizeText(
+    body.name
   );
 
-  const category = normalizeCategory(
-    body.category
-  );
+  const description =
+    normalizeText(
+      body.description
+    );
+
+  const category =
+    normalizeCategory(
+      body.category
+    );
 
   if (!name) {
     throw new ProductError(
@@ -245,27 +354,107 @@ function normalizeProductData(body = {}) {
     );
   }
 
-  const price = normalizePrice(body.price);
-  const images = normalizeImages(body.images);
-  const variations = normalizeVariations(
-    body.variations
-  );
+  const price =
+    normalizePrice(body.price);
+
+  const images =
+    normalizeImages(
+      body.images
+    );
+
+  const variations =
+    normalizeVariations(
+      body.variations
+    );
+
+  const shipping =
+    normalizeShippingData(body);
 
   return {
     name,
     price,
     description,
     category,
+
+    weight: shipping.weight,
+    width: shipping.width,
+    height: shipping.height,
+    length: shipping.length,
+
     images,
     variations,
   };
 }
 
+function normalizeBasicProductData(
+  body = {}
+) {
+  const name = normalizeText(
+    body.name
+  );
+
+  const description =
+    normalizeText(
+      body.description
+    );
+
+  const category =
+    normalizeCategory(
+      body.category
+    );
+
+  if (!name) {
+    throw new ProductError(
+      "O nome do produto é obrigatório."
+    );
+  }
+
+  if (name.length < 2) {
+    throw new ProductError(
+      "O nome do produto precisa ter pelo menos 2 caracteres."
+    );
+  }
+
+  if (!description) {
+    throw new ProductError(
+      "A descrição do produto é obrigatória."
+    );
+  }
+
+  if (!category) {
+    throw new ProductError(
+      `Categoria inválida. Utilize uma destas categorias: ${VALID_CATEGORIES.join(
+        ", "
+      )}.`
+    );
+  }
+
+  const price =
+    normalizePrice(body.price);
+
+  const shipping =
+    normalizeShippingData(body);
+
+  return {
+    name,
+    price,
+    description,
+    category,
+
+    weight: shipping.weight,
+    width: shipping.width,
+    height: shipping.height,
+    length: shipping.length,
+  };
+}
 function parseProductId(value) {
-  const productId = Number(value);
+  const productId =
+    Number(value);
 
   if (
-    !Number.isInteger(productId) ||
+    !Number.isInteger(
+      productId
+    ) ||
     productId <= 0
   ) {
     throw new ProductError(
@@ -276,29 +465,82 @@ function parseProductId(value) {
   return productId;
 }
 
-function handlePrismaError(error, res, action) {
+function parseVariationId(
+  value
+) {
+  const variationId =
+    Number(value);
+
+  if (
+    !Number.isInteger(
+      variationId
+    ) ||
+    variationId <= 0
+  ) {
+    throw new ProductError(
+      "ID da variação inválido."
+    );
+  }
+
+  return variationId;
+}
+
+function normalizeStock(value) {
+  const stock =
+    Number(value);
+
+  if (
+    !Number.isInteger(stock) ||
+    stock < 0
+  ) {
+    throw new ProductError(
+      "O estoque precisa ser um número inteiro maior ou igual a zero."
+    );
+  }
+
+  return stock;
+}
+
+function handlePrismaError(
+  error,
+  res,
+  action
+) {
   if (
     error instanceof
-      Prisma.PrismaClientKnownRequestError
+    Prisma.PrismaClientKnownRequestError
   ) {
-    if (error.code === "P2002") {
-      return res.status(409).json({
-        message:
-          "Já existe um produto com esses dados.",
-      });
+    if (
+      error.code === "P2002"
+    ) {
+      return res
+        .status(409)
+        .json({
+          message:
+            "Já existe um produto com esses dados.",
+        });
     }
 
-    if (error.code === "P2003") {
-      return res.status(409).json({
-        message:
-          "Não foi possível concluir a operação porque o produto ou alguma variação possui registros vinculados.",
-      });
+    if (
+      error.code === "P2003"
+    ) {
+      return res
+        .status(409)
+        .json({
+          message:
+            "Não foi possível concluir a operação porque o produto ou alguma variação possui registros vinculados.",
+        });
     }
 
-    if (error.code === "P2025") {
-      return res.status(404).json({
-        message: "Produto não encontrado.",
-      });
+    if (
+      error.code === "P2025"
+    ) {
+      return res
+        .status(404)
+        .json({
+          message:
+            "Produto ou variação não encontrado.",
+        });
     }
   }
 
@@ -317,226 +559,451 @@ function handlePrismaError(error, res, action) {
 // LISTAR E BUSCAR PRODUTOS
 // =====================
 
-const getAllProducts = async (req, res) => {
-  try {
-    const search = normalizeText(
-      req.query?.search
-    );
+const getAllProducts =
+  async (req, res) => {
+    try {
+      const search =
+        normalizeText(
+          req.query?.search
+        );
 
-    const requestedCategory = normalizeText(
-      req.query?.category
-    );
+      const requestedCategory =
+        normalizeText(
+          req.query?.category
+        );
 
-    const category = requestedCategory
-      ? normalizeCategory(requestedCategory)
-      : "";
+      const category =
+        requestedCategory
+          ? normalizeCategory(
+              requestedCategory
+            )
+          : "";
 
-    if (requestedCategory && !category) {
-      return res.status(400).json({
-        message: "Categoria inválida.",
-      });
+      if (
+        requestedCategory &&
+        !category
+      ) {
+        return res
+          .status(400)
+          .json({
+            message:
+              "Categoria inválida.",
+          });
+      }
+
+      const products =
+        await prisma.product.findMany(
+          {
+            where: {
+              ...(search
+                ? {
+                    OR: [
+                      {
+                        name: {
+                          contains:
+                            search,
+                          mode:
+                            "insensitive",
+                        },
+                      },
+
+                      {
+                        description:
+                          {
+                            contains:
+                              search,
+                            mode:
+                              "insensitive",
+                          },
+                      },
+
+                      {
+                        category: {
+                          contains:
+                            search,
+                          mode:
+                            "insensitive",
+                        },
+                      },
+                    ],
+                  }
+                : {}),
+
+              ...(category
+                ? {
+                    category,
+                  }
+                : {}),
+            },
+
+            include:
+              PRODUCT_INCLUDE,
+
+            orderBy: {
+              createdAt:
+                "desc",
+            },
+          }
+        );
+
+      return res
+        .status(200)
+        .json(products);
+    } catch (error) {
+      console.error(
+        "Erro ao buscar produtos:",
+        error
+      );
+
+      return sendServerError(
+        res,
+        "Erro ao buscar produtos."
+      );
     }
-
-    const products =
-      await prisma.product.findMany({
-        where: {
-          ...(search
-            ? {
-                OR: [
-                  {
-                    name: {
-                      contains: search,
-                      mode: "insensitive",
-                    },
-                  },
-                  {
-                    description: {
-                      contains: search,
-                      mode: "insensitive",
-                    },
-                  },
-                  {
-                    category: {
-                      contains: search,
-                      mode: "insensitive",
-                    },
-                  },
-                ],
-              }
-            : {}),
-
-          ...(category
-            ? {
-                category,
-              }
-            : {}),
-        },
-
-        include: PRODUCT_INCLUDE,
-
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
-
-    return res.status(200).json(products);
-  } catch (error) {
-    console.error(
-      "Erro ao buscar produtos:",
-      error
-    );
-
-    return sendServerError(
-      res,
-      "Erro ao buscar produtos."
-    );
-  }
-};
+  };
 
 // =====================
 // BUSCAR PRODUTO POR ID
 // =====================
 
-const getProductById = async (req, res) => {
-  try {
-    const productId = parseProductId(
-      req.params?.id
-    );
+const getProductById =
+  async (req, res) => {
+    try {
+      const productId =
+        parseProductId(
+          req.params?.id
+        );
 
-    const product =
-      await prisma.product.findUnique({
-        where: {
-          id: productId,
-        },
+      const product =
+        await prisma.product.findUnique(
+          {
+            where: {
+              id: productId,
+            },
 
-        include: PRODUCT_INCLUDE,
-      });
+            include:
+              PRODUCT_INCLUDE,
+          }
+        );
 
-    if (!product) {
-      return res.status(404).json({
-        message: "Produto não encontrado.",
-      });
+      if (!product) {
+        return res
+          .status(404)
+          .json({
+            message:
+              "Produto não encontrado.",
+          });
+      }
+
+      return res
+        .status(200)
+        .json(product);
+    } catch (error) {
+      if (
+        error instanceof
+        ProductError
+      ) {
+        return res
+          .status(
+            error.statusCode
+          )
+          .json({
+            message:
+              error.message,
+          });
+      }
+
+      console.error(
+        "Erro ao buscar produto:",
+        error
+      );
+
+      return sendServerError(
+        res,
+        "Erro ao buscar produto."
+      );
     }
-
-    return res.status(200).json(product);
-  } catch (error) {
-    if (error instanceof ProductError) {
-      return res.status(error.statusCode).json({
-        message: error.message,
-      });
-    }
-
-    console.error(
-      "Erro ao buscar produto:",
-      error
-    );
-
-    return sendServerError(
-      res,
-      "Erro ao buscar produto."
-    );
-  }
-};
+  };
 
 // =====================
 // CRIAR PRODUTO
 // =====================
 
-const createProduct = async (req, res) => {
-  try {
-    const {
-      name,
-      price,
-      description,
-      category,
-      images,
-      variations,
-    } = normalizeProductData(req.body);
+const createProduct =
+  async (req, res) => {
+    try {
+      const {
+        name,
+        price,
+        description,
+        category,
+        weight,
+        width,
+        height,
+        length,
+        images,
+        variations,
+      } =
+        normalizeProductData(
+          req.body
+        );
 
-    const product =
-      await prisma.product.create({
-        data: {
-          name,
-          price,
-          description,
-          category,
+      const product =
+        await prisma.product.create(
+          {
+            data: {
+              name,
+              price,
+              description,
+              category,
+              weight,
+              width,
+              height,
+              length,
 
-          ...(images.length > 0
-            ? {
-                images: {
-                  create: images,
-                },
-              }
-            : {}),
+              ...(images.length >
+              0
+                ? {
+                    images: {
+                      create:
+                        images,
+                    },
+                  }
+                : {}),
 
-          ...(variations.length > 0
-            ? {
-                variations: {
-                  create: variations,
-                },
-              }
-            : {}),
-        },
+              ...(variations.length >
+              0
+                ? {
+                    variations:
+                      {
+                        create:
+                          variations,
+                      },
+                  }
+                : {}),
+            },
 
-        include: PRODUCT_INCLUDE,
-      });
+            include:
+              PRODUCT_INCLUDE,
+          }
+        );
 
-    return res.status(201).json(product);
-  } catch (error) {
-    if (error instanceof ProductError) {
-      return res.status(error.statusCode).json({
-        message: error.message,
-      });
+      return res
+        .status(201)
+        .json(product);
+    } catch (error) {
+      if (
+        error instanceof
+        ProductError
+      ) {
+        return res
+          .status(
+            error.statusCode
+          )
+          .json({
+            message:
+              error.message,
+          });
+      }
+
+      return handlePrismaError(
+        error,
+        res,
+        "criar"
+      );
     }
+  };
+  // =====================
+// ATUALIZAR PRODUTO COMPLETO
+// =====================
+// =====================
+// ATUALIZAR PRODUTO COMPLETO
+// =====================
+//
+// Mantido para compatibilidade.
+// A tela de edição rápida do ADMIN
+// utilizará updateProductBasic.
+//
 
-    return handlePrismaError(
-      error,
-      res,
-      "criar"
-    );
-  }
-};
+const updateProduct =
+  async (req, res) => {
+    try {
+      const productId =
+        parseProductId(
+          req.params?.id
+        );
+
+      const {
+        name,
+        price,
+        description,
+        category,
+        weight,
+        width,
+        height,
+        length,
+        images,
+        variations,
+      } =
+        normalizeProductData(
+          req.body
+        );
+
+      const existingProduct =
+        await prisma.product.findUnique(
+          {
+            where: {
+              id: productId,
+            },
+
+            select: {
+              id: true,
+            },
+          }
+        );
+
+      if (!existingProduct) {
+        return res
+          .status(404)
+          .json({
+            message:
+              "Produto não encontrado.",
+          });
+      }
+
+      const updatedProduct =
+        await prisma.$transaction(
+          async (
+            transaction
+          ) => {
+            return transaction.product.update(
+              {
+                where: {
+                  id:
+                    productId,
+                },
+
+                data: {
+                  name,
+                  price,
+                  description,
+                  category,
+                  weight,
+                  width,
+                  height,
+                  length,
+
+                  images: {
+                    deleteMany:
+                      {},
+                    create:
+                      images,
+                  },
+
+                  variations:
+                    {
+                      deleteMany:
+                        {},
+                      create:
+                        variations,
+                    },
+                },
+
+                include:
+                  PRODUCT_INCLUDE,
+              }
+            );
+          }
+        );
+
+      return res
+        .status(200)
+        .json(
+          updatedProduct
+        );
+    } catch (error) {
+      if (
+        error instanceof
+        ProductError
+      ) {
+        return res
+          .status(
+            error.statusCode
+          )
+          .json({
+            message:
+              error.message,
+          });
+      }
+
+      return handlePrismaError(
+        error,
+        res,
+        "atualizar"
+      );
+    }
+  };
 
 // =====================
-// ATUALIZAR PRODUTO
+// ATUALIZAR DADOS BÁSICOS
 // =====================
+//
+// Esta rota NÃO altera:
+// - imagens
+// - variações
+// - estoque
+//
+// Ideal para o botão "Editar"
+// no painel administrativo.
+//
 
-const updateProduct = async (req, res) => {
-  try {
-    const productId = parseProductId(
-      req.params?.id
-    );
+const updateProductBasic =
+  async (req, res) => {
+    try {
+      const productId =
+        parseProductId(
+          req.params?.id
+        );
 
-    const {
-      name,
-      price,
-      description,
-      category,
-      images,
-      variations,
-    } = normalizeProductData(req.body);
+      const {
+        name,
+        price,
+        description,
+        category,
+        weight,
+        width,
+        height,
+        length,
+      } =
+        normalizeBasicProductData(
+          req.body
+        );
 
-    const existingProduct =
-      await prisma.product.findUnique({
-        where: {
-          id: productId,
-        },
+      const existingProduct =
+        await prisma.product.findUnique(
+          {
+            where: {
+              id: productId,
+            },
 
-        select: {
-          id: true,
-        },
-      });
+            select: {
+              id: true,
+            },
+          }
+        );
 
-    if (!existingProduct) {
-      return res.status(404).json({
-        message: "Produto não encontrado.",
-      });
-    }
+      if (!existingProduct) {
+        return res
+          .status(404)
+          .json({
+            message:
+              "Produto não encontrado.",
+          });
+      }
 
-    const updatedProduct =
-      await prisma.$transaction(
-        async (transaction) => {
-          return transaction.product.update({
+      const updatedProduct =
+        await prisma.product.update(
+          {
             where: {
               id: productId,
             },
@@ -546,97 +1013,244 @@ const updateProduct = async (req, res) => {
               price,
               description,
               category,
-
-              images: {
-                deleteMany: {},
-                create: images,
-              },
-
-              variations: {
-                deleteMany: {},
-                create: variations,
-              },
+              weight,
+              width,
+              height,
+              length,
             },
 
-            include: PRODUCT_INCLUDE,
+            include:
+              PRODUCT_INCLUDE,
+          }
+        );
+
+      return res
+        .status(200)
+        .json({
+          message:
+            "Produto atualizado com sucesso.",
+
+          product:
+            updatedProduct,
+        });
+    } catch (error) {
+      if (
+        error instanceof
+        ProductError
+      ) {
+        return res
+          .status(
+            error.statusCode
+          )
+          .json({
+            message:
+              error.message,
           });
-        }
+      }
+
+      return handlePrismaError(
+        error,
+        res,
+        "atualizar"
+      );
+    }
+  };
+  // =====================
+// ATUALIZAR ESTOQUE DE UMA VARIAÇÃO
+// =====================
+
+const updateVariationStock =
+  async (req, res) => {
+    try {
+      const variationId =
+        parseVariationId(
+          req.params
+            ?.variationId
+        );
+
+      const stock =
+        normalizeStock(
+          req.body?.stock
+        );
+
+      const existingVariation =
+        await prisma.variation.findUnique(
+          {
+            where: {
+              id:
+                variationId,
+            },
+
+            include: {
+              product: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+          }
+        );
+
+      if (
+        !existingVariation
+      ) {
+        return res
+          .status(404)
+          .json({
+            message:
+              "Variação não encontrada.",
+          });
+      }
+
+      const updatedVariation =
+        await prisma.variation.update(
+          {
+            where: {
+              id:
+                variationId,
+            },
+
+            data: {
+              stock,
+            },
+
+            select: {
+              id: true,
+              size: true,
+              color: true,
+              stock: true,
+              productId: true,
+            },
+          }
+        );
+
+      return res
+        .status(200)
+        .json({
+          message:
+            "Estoque atualizado com sucesso.",
+
+          product: {
+            id:
+              existingVariation
+                .product.id,
+
+            name:
+              existingVariation
+                .product.name,
+          },
+
+          variation:
+            updatedVariation,
+        });
+    } catch (error) {
+      if (
+        error instanceof
+        ProductError
+      ) {
+        return res
+          .status(
+            error.statusCode
+          )
+          .json({
+            message:
+              error.message,
+          });
+      }
+
+      console.error(
+        "Erro ao atualizar estoque da variação:",
+        error
       );
 
-    return res
-      .status(200)
-      .json(updatedProduct);
-  } catch (error) {
-    if (error instanceof ProductError) {
-      return res.status(error.statusCode).json({
-        message: error.message,
-      });
+      return sendServerError(
+        res,
+        "Erro ao atualizar estoque."
+      );
     }
-
-    return handlePrismaError(
-      error,
-      res,
-      "atualizar"
-    );
-  }
-};
+  };
 
 // =====================
 // EXCLUIR PRODUTO
 // =====================
 
-const deleteProduct = async (req, res) => {
-  try {
-    const productId = parseProductId(
-      req.params?.id
-    );
+const deleteProduct =
+  async (req, res) => {
+    try {
+      const productId =
+        parseProductId(
+          req.params?.id
+        );
 
-    const existingProduct =
-      await prisma.product.findUnique({
-        where: {
-          id: productId,
-        },
+      const existingProduct =
+        await prisma.product.findUnique(
+          {
+            where: {
+              id:
+                productId,
+            },
 
-        select: {
-          id: true,
-          name: true,
-        },
-      });
+            select: {
+              id: true,
+              name: true,
+            },
+          }
+        );
 
-    if (!existingProduct) {
-      return res.status(404).json({
-        message: "Produto não encontrado.",
-      });
+      if (!existingProduct) {
+        return res
+          .status(404)
+          .json({
+            message:
+              "Produto não encontrado.",
+          });
+      }
+
+      await prisma.product.delete(
+        {
+          where: {
+            id:
+              productId,
+          },
+        }
+      );
+
+      return res
+        .status(200)
+        .json({
+          message:
+            "Produto removido com sucesso.",
+        });
+    } catch (error) {
+      if (
+        error instanceof
+        ProductError
+      ) {
+        return res
+          .status(
+            error.statusCode
+          )
+          .json({
+            message:
+              error.message,
+          });
+      }
+
+      return handlePrismaError(
+        error,
+        res,
+        "remover"
+      );
     }
-
-    await prisma.product.delete({
-      where: {
-        id: productId,
-      },
-    });
-
-    return res.status(200).json({
-      message: "Produto removido com sucesso.",
-    });
-  } catch (error) {
-    if (error instanceof ProductError) {
-      return res.status(error.statusCode).json({
-        message: error.message,
-      });
-    }
-
-    return handlePrismaError(
-      error,
-      res,
-      "remover"
-    );
-  }
-};
+  };
 
 module.exports = {
   getAllProducts,
   getProductById,
   createProduct,
   updateProduct,
+  updateProductBasic,
+  updateVariationStock,
   deleteProduct,
 };

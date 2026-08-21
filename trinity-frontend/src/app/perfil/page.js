@@ -3,10 +3,14 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+
 import {
+  Boxes,
   CalendarDays,
   ChevronRight,
+  ClipboardList,
   Heart,
+  LayoutDashboard,
   LoaderCircle,
   LockKeyhole,
   LogOut,
@@ -16,10 +20,13 @@ import {
   Pencil,
   Phone,
   Save,
+  Settings,
   ShieldCheck,
   User,
+  Users,
   X,
 } from "lucide-react";
+
 import toast from "react-hot-toast";
 
 import { useAuth } from "@/context/AuthContext";
@@ -46,13 +53,16 @@ function createFormFromUser(user) {
     email: user?.email || "",
     phone: formatPhone(user?.phone),
     cpf: formatCpf(user?.cpf),
-    birthDate: formatDateForInput(user?.birthDate),
+    birthDate: formatDateForInput(
+      user?.birthDate
+    ),
     avatarUrl: user?.avatarUrl || "",
     zipCode: formatZipCode(user?.zipCode),
     street: user?.street || "",
     number: user?.number || "",
     complement: user?.complement || "",
-    neighborhood: user?.neighborhood || "",
+    neighborhood:
+      user?.neighborhood || "",
     city: user?.city || "",
     state: user?.state || "",
   };
@@ -69,7 +79,9 @@ function formatDateForInput(value) {
     return "";
   }
 
-  return date.toISOString().split("T")[0];
+  return date
+    .toISOString()
+    .split("T")[0];
 }
 
 function formatCpf(value) {
@@ -83,7 +95,10 @@ function formatCpf(value) {
       /^(\d{3})\.(\d{3})(\d)/,
       "$1.$2.$3"
     )
-    .replace(/\.(\d{3})(\d)/, ".$1-$2");
+    .replace(
+      /\.(\d{3})(\d)/,
+      ".$1-$2"
+    );
 }
 
 function formatPhone(value) {
@@ -93,27 +108,41 @@ function formatPhone(value) {
 
   if (numbers.length <= 10) {
     return numbers
-      .replace(/^(\d{2})(\d)/, "($1) $2")
-      .replace(/(\d{4})(\d)/, "$1-$2");
+      .replace(
+        /^(\d{2})(\d)/,
+        "($1) $2"
+      )
+      .replace(
+        /(\d{4})(\d)/,
+        "$1-$2"
+      );
   }
 
   return numbers
-    .replace(/^(\d{2})(\d)/, "($1) $2")
-    .replace(/(\d{5})(\d)/, "$1-$2");
+    .replace(
+      /^(\d{2})(\d)/,
+      "($1) $2"
+    )
+    .replace(
+      /(\d{5})(\d)/,
+      "$1-$2"
+    );
 }
 
 function formatZipCode(value) {
   return String(value || "")
     .replace(/\D/g, "")
     .slice(0, 8)
-    .replace(/^(\d{5})(\d)/, "$1-$2");
+    .replace(
+      /^(\d{5})(\d)/,
+      "$1-$2"
+    );
 }
 
 function isValidCpf(value) {
-  const cpf = String(value || "").replace(
-    /\D/g,
-    ""
-  );
+  const cpf = String(
+    value || ""
+  ).replace(/\D/g, "");
 
   if (!cpf) {
     return true;
@@ -129,19 +158,29 @@ function isValidCpf(value) {
   const calculateDigit = (length) => {
     let total = 0;
 
-    for (let index = 0; index < length; index += 1) {
+    for (
+      let index = 0;
+      index < length;
+      index += 1
+    ) {
       total +=
-        Number(cpf[index]) * (length + 1 - index);
+        Number(cpf[index]) *
+        (length + 1 - index);
     }
 
-    const remainder = (total * 10) % 11;
+    const remainder =
+      (total * 10) % 11;
 
-    return remainder === 10 ? 0 : remainder;
+    return remainder === 10
+      ? 0
+      : remainder;
   };
 
   return (
-    calculateDigit(9) === Number(cpf[9]) &&
-    calculateDigit(10) === Number(cpf[10])
+    calculateDigit(9) ===
+      Number(cpf[9]) &&
+    calculateDigit(10) ===
+      Number(cpf[10])
   );
 }
 
@@ -173,24 +212,45 @@ export default function PerfilPage() {
     updateProfile,
   } = useAuth();
 
-  const [form, setForm] = useState(initialForm);
-  const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [avatarError, setAvatarError] =
+  const isAdmin =
+    user?.role === "ADMIN";
+
+  const [form, setForm] =
+    useState(initialForm);
+
+  const [editing, setEditing] =
     useState(false);
 
+  const [saving, setSaving] =
+    useState(false);
+
+  const [
+    avatarError,
+    setAvatarError,
+  ] = useState(false);
+
   useEffect(() => {
-    if (!loading && !isAuthenticated) {
+    if (
+      !loading &&
+      !isAuthenticated
+    ) {
       router.replace("/login");
     }
-  }, [loading, isAuthenticated, router]);
+  }, [
+    loading,
+    isAuthenticated,
+    router,
+  ]);
 
   useEffect(() => {
     if (!user) {
       return;
     }
 
-    setForm(createFormFromUser(user));
+    setForm(
+      createFormFromUser(user)
+    );
+
     setAvatarError(false);
   }, [user]);
 
@@ -207,44 +267,64 @@ export default function PerfilPage() {
       .map((part) => part[0])
       .join("")
       .toUpperCase();
-  }, [form.name, user?.email]);
+  }, [
+    form.name,
+    user?.email,
+  ]);
 
-  const maxBirthDate = useMemo(() => {
-    return new Date().toISOString().split("T")[0];
-  }, []);
+  const maxBirthDate =
+    useMemo(() => {
+      return new Date()
+        .toISOString()
+        .split("T")[0];
+    }, []);
 
   function handleChange(event) {
-    const { name, value } = event.target;
+    const {
+      name,
+      value,
+    } = event.target;
 
     let formattedValue = value;
 
     if (name === "cpf") {
-      formattedValue = formatCpf(value);
+      formattedValue =
+        formatCpf(value);
     }
 
     if (name === "phone") {
-      formattedValue = formatPhone(value);
+      formattedValue =
+        formatPhone(value);
     }
 
     if (name === "zipCode") {
-      formattedValue = formatZipCode(value);
+      formattedValue =
+        formatZipCode(value);
     }
 
     if (name === "state") {
       formattedValue = value
-        .replace(/[^a-zA-Z]/g, "")
+        .replace(
+          /[^a-zA-Z]/g,
+          ""
+        )
         .slice(0, 2)
         .toUpperCase();
     }
 
-    if (name === "avatarUrl") {
+    if (
+      name === "avatarUrl"
+    ) {
       setAvatarError(false);
     }
 
-    setForm((current) => ({
-      ...current,
-      [name]: formattedValue,
-    }));
+    setForm(
+      (current) => ({
+        ...current,
+        [name]:
+          formattedValue,
+      })
+    );
   }
 
   function resetForm() {
@@ -252,47 +332,77 @@ export default function PerfilPage() {
       return;
     }
 
-    setForm(createFormFromUser(user));
+    setForm(
+      createFormFromUser(user)
+    );
+
     setAvatarError(false);
     setEditing(false);
   }
 
-  async function handleSubmit(event) {
+  async function handleSubmit(
+    event
+  ) {
     event.preventDefault();
 
     if (saving) {
       return;
     }
 
-    const name = form.name.trim();
-    const phoneNumbers = form.phone.replace(
-      /\D/g,
-      ""
-    );
-    const cpfNumbers = form.cpf.replace(/\D/g, "");
-    const zipCodeNumbers = form.zipCode.replace(
-      /\D/g,
-      ""
-    );
-    const state = form.state.trim();
+    const name =
+      form.name.trim();
+
+    const phoneNumbers =
+      form.phone.replace(
+        /\D/g,
+        ""
+      );
+
+    const cpfNumbers =
+      form.cpf.replace(
+        /\D/g,
+        ""
+      );
+
+    const zipCodeNumbers =
+      form.zipCode.replace(
+        /\D/g,
+        ""
+      );
+
+    const state =
+      form.state.trim();
 
     if (name.length < 2) {
-      toast.error("Informe seu nome completo.");
+      toast.error(
+        "Informe seu nome completo."
+      );
+
       return;
     }
 
     if (
       phoneNumbers &&
-      ![10, 11].includes(phoneNumbers.length)
+      ![10, 11].includes(
+        phoneNumbers.length
+      )
     ) {
       toast.error(
         "Informe um telefone com DDD válido."
       );
+
       return;
     }
 
-    if (!isValidCpf(cpfNumbers)) {
-      toast.error("Informe um CPF válido.");
+    if (
+      !isValidCpf(
+        cpfNumbers
+      )
+    ) {
+      toast.error(
+        "Informe um CPF válido."
+      );
+
       return;
     }
 
@@ -300,34 +410,46 @@ export default function PerfilPage() {
       zipCodeNumbers &&
       zipCodeNumbers.length !== 8
     ) {
-      toast.error("O CEP precisa ter 8 números.");
+      toast.error(
+        "O CEP precisa ter 8 números."
+      );
+
       return;
     }
 
-    if (state && state.length !== 2) {
+    if (
+      state &&
+      state.length !== 2
+    ) {
       toast.error(
         "Informe a sigla do estado com 2 letras."
       );
+
       return;
     }
 
     if (
       form.birthDate &&
-      form.birthDate > maxBirthDate
+      form.birthDate >
+        maxBirthDate
     ) {
       toast.error(
         "A data de nascimento não pode estar no futuro."
       );
+
       return;
     }
 
     if (
       form.avatarUrl.trim() &&
-      !isValidUrl(form.avatarUrl.trim())
+      !isValidUrl(
+        form.avatarUrl.trim()
+      )
     ) {
       toast.error(
         "Informe uma URL válida para a foto de perfil."
       );
+
       return;
     }
 
@@ -336,23 +458,54 @@ export default function PerfilPage() {
 
       await updateProfile({
         name,
-        phone: phoneNumbers || null,
-        cpf: cpfNumbers || null,
-        birthDate: form.birthDate || null,
+
+        phone:
+          phoneNumbers ||
+          null,
+
+        cpf:
+          cpfNumbers ||
+          null,
+
+        birthDate:
+          form.birthDate ||
+          null,
+
         avatarUrl:
-          form.avatarUrl.trim() || null,
-        zipCode: zipCodeNumbers || null,
-        street: form.street.trim() || null,
-        number: form.number.trim() || null,
+          form.avatarUrl.trim() ||
+          null,
+
+        zipCode:
+          zipCodeNumbers ||
+          null,
+
+        street:
+          form.street.trim() ||
+          null,
+
+        number:
+          form.number.trim() ||
+          null,
+
         complement:
-          form.complement.trim() || null,
+          form.complement.trim() ||
+          null,
+
         neighborhood:
-          form.neighborhood.trim() || null,
-        city: form.city.trim() || null,
-        state: state || null,
+          form.neighborhood.trim() ||
+          null,
+
+        city:
+          form.city.trim() ||
+          null,
+
+        state:
+          state ||
+          null,
       });
 
       setEditing(false);
+
       toast.success(
         "Perfil atualizado com sucesso."
       );
@@ -381,10 +534,15 @@ export default function PerfilPage() {
   }
 
   if (loading) {
-    return <ProfileLoading />;
+    return (
+      <ProfileLoading />
+    );
   }
 
-  if (!isAuthenticated || !user) {
+  if (
+    !isAuthenticated ||
+    !user
+  ) {
     return null;
   }
 
@@ -401,9 +559,10 @@ export default function PerfilPage() {
           </h1>
 
           <p className="mt-3 max-w-2xl text-zinc-400">
-            Gerencie seus dados pessoais, endereço,
-            segurança e preferências da sua conta
-            Trinity.
+            Gerencie seus dados
+            pessoais, endereço,
+            segurança e preferências
+            da sua conta Trinity.
           </p>
         </header>
 
@@ -411,22 +570,28 @@ export default function PerfilPage() {
           <aside className="space-y-5">
             <section className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-6">
               <div className="flex items-center gap-4">
-                {form.avatarUrl && !avatarError ? (
+                {form.avatarUrl &&
+                !avatarError ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={form.avatarUrl}
+                    src={
+                      form.avatarUrl
+                    }
                     alt={
                       form.name ||
                       "Usuário Trinity"
                     }
                     onError={() =>
-                      setAvatarError(true)
+                      setAvatarError(
+                        true
+                      )
                     }
                     className="h-16 w-16 shrink-0 rounded-2xl object-cover"
                   />
                 ) : (
                   <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-white text-xl font-black text-black">
-                    {initials || "T"}
+                    {initials ||
+                      "T"}
                   </div>
                 )}
 
@@ -449,8 +614,15 @@ export default function PerfilPage() {
                     Tipo de conta
                   </span>
 
-                  <span className="rounded-full bg-white px-3 py-1 text-xs font-bold uppercase text-black">
-                    {user.role || "CLIENTE"}
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${
+                      isAdmin
+                        ? "border border-violet-500/30 bg-violet-500/10 text-violet-300"
+                        : "bg-white text-black"
+                    }`}
+                  >
+                    {user.role ||
+                      "CLIENTE"}
                   </span>
                 </div>
 
@@ -460,11 +632,106 @@ export default function PerfilPage() {
                   </span>
 
                   <span className="max-w-[150px] truncate font-medium text-zinc-300">
-                    {user.id || "-"}
+                    {user.id ||
+                      "-"}
                   </span>
                 </div>
               </div>
             </section>
+
+            {isAdmin && (
+              <section className="overflow-hidden rounded-3xl border border-violet-500/20 bg-violet-500/5">
+                <div className="border-b border-violet-500/20 p-5">
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-xl bg-violet-500/10 p-2.5 text-violet-300">
+                      <ShieldCheck
+                        size={20}
+                      />
+                    </div>
+
+                    <div>
+                      <p className="font-black text-white">
+                        Administração
+                      </p>
+
+                      <p className="mt-1 text-xs text-zinc-500">
+                        Central de
+                        gestão da
+                        Trinity
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="p-3">
+                  <AdminAccountLink
+                    href="/admin"
+                    icon={
+                      <LayoutDashboard
+                        size={20}
+                      />
+                    }
+                    title="Visão geral"
+                    description="Resumo da operação da loja"
+                  />
+
+                  <AdminAccountLink
+                    href="/admin/produtos"
+                    icon={
+                      <Package
+                        size={20}
+                      />
+                    }
+                    title="Produtos"
+                    description="Cadastre e edite produtos"
+                  />
+
+                  <AdminAccountLink
+                    href="/admin/estoque"
+                    icon={
+                      <Boxes
+                        size={20}
+                      />
+                    }
+                    title="Estoque"
+                    description="Controle quantidades e variações"
+                  />
+
+                  <AdminAccountLink
+                    href="/admin/pedidos"
+                    icon={
+                      <ClipboardList
+                        size={20}
+                      />
+                    }
+                    title="Pedidos"
+                    description="Acompanhe vendas e entregas"
+                  />
+
+                  <AdminAccountLink
+                    href="/admin/usuarios"
+                    icon={
+                      <Users
+                        size={20}
+                      />
+                    }
+                    title="Clientes e usuários"
+                    description="Gerencie contas e permissões"
+                  />
+
+                  <AdminAccountLink
+                    href="/admin/configuracoes"
+                    icon={
+                      <Settings
+                        size={20}
+                      />
+                    }
+                    title="Configurações"
+                    description="Configure a operação da loja"
+                  />
+                </div>
+              </section>
+            )}
 
             <nav
               aria-label="Menu da conta"
@@ -472,21 +739,33 @@ export default function PerfilPage() {
             >
               <AccountLink
                 href="/meus-pedidos"
-                icon={<Package size={20} />}
+                icon={
+                  <Package
+                    size={20}
+                  />
+                }
                 title="Meus pedidos"
                 description="Acompanhe suas compras"
               />
 
               <AccountLink
                 href="/favoritos"
-                icon={<Heart size={20} />}
+                icon={
+                  <Heart
+                    size={20}
+                  />
+                }
                 title="Favoritos"
                 description="Veja seus produtos salvos"
               />
 
               <AccountLink
                 href="/redefinir-senha"
-                icon={<LockKeyhole size={20} />}
+                icon={
+                  <LockKeyhole
+                    size={20}
+                  />
+                }
                 title="Alterar senha"
                 description="Atualize sua senha de acesso"
               />
@@ -494,8 +773,12 @@ export default function PerfilPage() {
 
             <button
               type="button"
-              onClick={handleLogout}
-              disabled={saving}
+              onClick={
+                handleLogout
+              }
+              disabled={
+                saving
+              }
               className="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-500/30 bg-red-500/10 px-5 py-3.5 font-bold text-red-400 transition hover:border-red-500 hover:bg-red-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
             >
               <LogOut
@@ -517,20 +800,27 @@ export default function PerfilPage() {
                   />
 
                   <h2 className="text-xl font-bold">
-                    Dados do perfil
+                    Dados do
+                    perfil
                   </h2>
                 </div>
 
                 <p className="mt-2 text-sm text-zinc-500">
-                  Essas informações serão usadas no
-                  checkout e nos seus pedidos.
+                  Essas informações
+                  serão usadas no
+                  checkout e nos seus
+                  pedidos.
                 </p>
               </div>
 
               {!editing ? (
                 <button
                   type="button"
-                  onClick={() => setEditing(true)}
+                  onClick={() =>
+                    setEditing(
+                      true
+                    )
+                  }
                   className="flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 font-bold text-black transition hover:bg-zinc-200 active:scale-95"
                 >
                   <Pencil
@@ -543,8 +833,12 @@ export default function PerfilPage() {
               ) : (
                 <button
                   type="button"
-                  onClick={resetForm}
-                  disabled={saving}
+                  onClick={
+                    resetForm
+                  }
+                  disabled={
+                    saving
+                  }
                   className="flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800 px-5 py-3 font-bold text-white transition hover:border-white disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <X
@@ -558,25 +852,41 @@ export default function PerfilPage() {
             </div>
 
             <form
-              onSubmit={handleSubmit}
+              onSubmit={
+                handleSubmit
+              }
               className="space-y-10 p-6"
             >
               <fieldset
-                disabled={!editing || saving}
+                disabled={
+                  !editing ||
+                  saving
+                }
                 className="contents"
               >
                 <div>
                   <h3 className="mb-5 text-sm font-bold uppercase tracking-[0.2em] text-zinc-500">
-                    Informações pessoais
+                    Informações
+                    pessoais
                   </h3>
 
                   <div className="grid gap-5 md:grid-cols-2">
                     <ProfileField
                       label="Nome completo"
                       name="name"
-                      value={form.name}
-                      onChange={handleChange}
-                      icon={<User size={18} />}
+                      value={
+                        form.name
+                      }
+                      onChange={
+                        handleChange
+                      }
+                      icon={
+                        <User
+                          size={
+                            18
+                          }
+                        />
+                      }
                       placeholder="Seu nome completo"
                       autoComplete="name"
                       required
@@ -586,9 +896,17 @@ export default function PerfilPage() {
                       label="E-mail"
                       name="email"
                       type="email"
-                      value={form.email}
+                      value={
+                        form.email
+                      }
                       disabled
-                      icon={<Mail size={18} />}
+                      icon={
+                        <Mail
+                          size={
+                            18
+                          }
+                        />
+                      }
                       helper="O e-mail da conta não pode ser alterado aqui."
                       autoComplete="email"
                     />
@@ -597,9 +915,19 @@ export default function PerfilPage() {
                       label="Telefone"
                       name="phone"
                       type="tel"
-                      value={form.phone}
-                      onChange={handleChange}
-                      icon={<Phone size={18} />}
+                      value={
+                        form.phone
+                      }
+                      onChange={
+                        handleChange
+                      }
+                      icon={
+                        <Phone
+                          size={
+                            18
+                          }
+                        />
+                      }
                       placeholder="(00) 00000-0000"
                       autoComplete="tel"
                       inputMode="numeric"
@@ -608,10 +936,18 @@ export default function PerfilPage() {
                     <ProfileField
                       label="CPF"
                       name="cpf"
-                      value={form.cpf}
-                      onChange={handleChange}
+                      value={
+                        form.cpf
+                      }
+                      onChange={
+                        handleChange
+                      }
                       icon={
-                        <ShieldCheck size={18} />
+                        <ShieldCheck
+                          size={
+                            18
+                          }
+                        />
                       }
                       placeholder="000.000.000-00"
                       inputMode="numeric"
@@ -621,12 +957,22 @@ export default function PerfilPage() {
                       label="Data de nascimento"
                       name="birthDate"
                       type="date"
-                      value={form.birthDate}
-                      onChange={handleChange}
-                      icon={
-                        <CalendarDays size={18} />
+                      value={
+                        form.birthDate
                       }
-                      max={maxBirthDate}
+                      onChange={
+                        handleChange
+                      }
+                      icon={
+                        <CalendarDays
+                          size={
+                            18
+                          }
+                        />
+                      }
+                      max={
+                        maxBirthDate
+                      }
                       autoComplete="bday"
                     />
 
@@ -634,8 +980,12 @@ export default function PerfilPage() {
                       label="URL da foto de perfil"
                       name="avatarUrl"
                       type="url"
-                      value={form.avatarUrl}
-                      onChange={handleChange}
+                      value={
+                        form.avatarUrl
+                      }
+                      onChange={
+                        handleChange
+                      }
                       placeholder="https://..."
                       autoComplete="url"
                     />
@@ -646,18 +996,24 @@ export default function PerfilPage() {
                   <div className="mb-6">
                     <div className="flex items-center gap-3">
                       <MapPin
-                        size={22}
+                        size={
+                          22
+                        }
                         aria-hidden="true"
                       />
 
                       <h3 className="text-xl font-bold">
-                        Endereço principal
+                        Endereço
+                        principal
                       </h3>
                     </div>
 
                     <p className="mt-2 text-sm text-zinc-500">
-                      Este endereço poderá ser usado
-                      durante a finalização da compra.
+                      Este endereço
+                      poderá ser usado
+                      durante a
+                      finalização da
+                      compra.
                     </p>
                   </div>
 
@@ -665,8 +1021,12 @@ export default function PerfilPage() {
                     <ProfileField
                       label="CEP"
                       name="zipCode"
-                      value={form.zipCode}
-                      onChange={handleChange}
+                      value={
+                        form.zipCode
+                      }
+                      onChange={
+                        handleChange
+                      }
                       placeholder="00000-000"
                       autoComplete="postal-code"
                       inputMode="numeric"
@@ -675,8 +1035,12 @@ export default function PerfilPage() {
                     <ProfileField
                       label="Rua"
                       name="street"
-                      value={form.street}
-                      onChange={handleChange}
+                      value={
+                        form.street
+                      }
+                      onChange={
+                        handleChange
+                      }
                       placeholder="Nome da rua"
                       autoComplete="address-line1"
                     />
@@ -684,8 +1048,12 @@ export default function PerfilPage() {
                     <ProfileField
                       label="Número"
                       name="number"
-                      value={form.number}
-                      onChange={handleChange}
+                      value={
+                        form.number
+                      }
+                      onChange={
+                        handleChange
+                      }
                       placeholder="123"
                       autoComplete="address-line2"
                     />
@@ -693,24 +1061,36 @@ export default function PerfilPage() {
                     <ProfileField
                       label="Complemento"
                       name="complement"
-                      value={form.complement}
-                      onChange={handleChange}
+                      value={
+                        form.complement
+                      }
+                      onChange={
+                        handleChange
+                      }
                       placeholder="Apartamento, bloco..."
                     />
 
                     <ProfileField
                       label="Bairro"
                       name="neighborhood"
-                      value={form.neighborhood}
-                      onChange={handleChange}
+                      value={
+                        form.neighborhood
+                      }
+                      onChange={
+                        handleChange
+                      }
                       placeholder="Seu bairro"
                     />
 
                     <ProfileField
                       label="Cidade"
                       name="city"
-                      value={form.city}
-                      onChange={handleChange}
+                      value={
+                        form.city
+                      }
+                      onChange={
+                        handleChange
+                      }
                       placeholder="Sua cidade"
                       autoComplete="address-level2"
                     />
@@ -718,8 +1098,12 @@ export default function PerfilPage() {
                     <ProfileField
                       label="Estado"
                       name="state"
-                      value={form.state}
-                      onChange={handleChange}
+                      value={
+                        form.state
+                      }
+                      onChange={
+                        handleChange
+                      }
                       placeholder="UF"
                       maxLength={2}
                       autoComplete="address-level1"
@@ -732,28 +1116,41 @@ export default function PerfilPage() {
                 <div className="flex flex-col gap-3 border-t border-zinc-800 pt-6 sm:flex-row sm:justify-end">
                   <button
                     type="button"
-                    onClick={resetForm}
-                    disabled={saving}
+                    onClick={
+                      resetForm
+                    }
+                    disabled={
+                      saving
+                    }
                     className="rounded-xl border border-zinc-700 bg-zinc-800 px-6 py-3 font-bold text-white transition hover:border-white disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    Descartar alterações
+                    Descartar
+                    alterações
                   </button>
 
                   <button
                     type="submit"
-                    disabled={saving}
-                    aria-busy={saving}
+                    disabled={
+                      saving
+                    }
+                    aria-busy={
+                      saving
+                    }
                     className="flex items-center justify-center gap-2 rounded-xl bg-white px-6 py-3 font-bold text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {saving ? (
                       <LoaderCircle
-                        size={18}
+                        size={
+                          18
+                        }
                         aria-hidden="true"
                         className="animate-spin"
                       />
                     ) : (
                       <Save
-                        size={18}
+                        size={
+                          18
+                        }
                         aria-hidden="true"
                       />
                     )}
@@ -813,15 +1210,29 @@ function ProfileField({
           type={type}
           value={value ?? ""}
           onChange={onChange}
-          placeholder={placeholder}
-          maxLength={maxLength}
+          placeholder={
+            placeholder
+          }
+          maxLength={
+            maxLength
+          }
           max={max}
-          disabled={disabled}
-          autoComplete={autoComplete}
-          inputMode={inputMode}
-          required={required}
+          disabled={
+            disabled
+          }
+          autoComplete={
+            autoComplete
+          }
+          inputMode={
+            inputMode
+          }
+          required={
+            required
+          }
           className={`w-full rounded-2xl border px-4 py-3.5 text-sm outline-none transition ${
-            icon ? "pl-12" : ""
+            icon
+              ? "pl-12"
+              : ""
           } ${
             disabled
               ? "cursor-not-allowed border-zinc-800 bg-zinc-950/50 text-zinc-400"
@@ -876,13 +1287,52 @@ function AccountLink({
   );
 }
 
+function AdminAccountLink({
+  href,
+  icon,
+  title,
+  description,
+}) {
+  return (
+    <Link
+      href={href}
+      className="group flex items-center gap-4 rounded-2xl px-4 py-4 transition hover:bg-violet-500/10"
+    >
+      <div
+        aria-hidden="true"
+        className="rounded-xl bg-zinc-800 p-2.5 text-zinc-300 transition group-hover:bg-white group-hover:text-black"
+      >
+        {icon}
+      </div>
+
+      <div className="min-w-0 flex-1">
+        <p className="font-bold text-white">
+          {title}
+        </p>
+
+        <p className="mt-1 text-xs text-zinc-500">
+          {description}
+        </p>
+      </div>
+
+      <ChevronRight
+        size={18}
+        aria-hidden="true"
+        className="text-zinc-600 transition group-hover:translate-x-1 group-hover:text-white"
+      />
+    </Link>
+  );
+}
+
 function ProfileLoading() {
   return (
     <main className="min-h-screen bg-zinc-950 px-4 py-10 text-white sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl animate-pulse">
         <div className="mb-10 space-y-4">
           <div className="h-4 w-28 rounded bg-zinc-800" />
+
           <div className="h-10 w-64 rounded-xl bg-zinc-800" />
+
           <div className="h-5 w-full max-w-xl rounded bg-zinc-900" />
         </div>
 

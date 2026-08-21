@@ -25,6 +25,12 @@ model Product {
   category    String?
   createdAt   DateTime @default(now())
 
+  // Dados usados para calcular o frete
+  weight Float? // kg
+  width  Float? // cm
+  height Float? // cm
+  length Float? // cm
+
   images     Image[]
   variations Variation[]
   orderItems OrderItem[]
@@ -94,13 +100,65 @@ model Favorite {
 }
 
 model Order {
-  id             String      @id @default(uuid())
-  status         OrderStatus @default(PENDING)
-  total          Float
-  paymentId      String?     @unique
+  id     String      @id @default(uuid())
+  status OrderStatus @default(PENDING)
+
+  // =========================
+  // VALORES DO PEDIDO
+  // =========================
+
+  subtotal      Float?
+  shippingPrice Float?
+  total         Float
+
+  // =========================
+  // MERCADO PAGO
+  // =========================
+
+  paymentId      String?   @unique
   preferenceId   String?
   stockReducedAt DateTime?
 
+  // =========================
+  // FRETE
+  // =========================
+
+  // ID do serviço retornado pelo Melhor Envio
+  shippingServiceId String?
+
+  // Ex: PAC, SEDEX, Jadlog Package
+  shippingService String?
+
+  // Ex: Correios, Jadlog
+  shippingCompany String?
+
+  // Prazo estimado em dias úteis
+  shippingDeadline Int?
+
+  // Código de rastreamento
+  trackingCode String?
+
+  // Link de rastreamento, caso disponível
+  trackingUrl String?
+
+  // URL da etiqueta, caso seja armazenada
+  shippingLabelUrl String?
+
+  // =========================
+  // ENDEREÇO DO PEDIDO
+  // =========================
+
+  shippingName         String?
+  shippingPhone        String?
+  shippingZipCode      String?
+  shippingStreet       String?
+  shippingNumber       String?
+  shippingComplement   String?
+  shippingNeighborhood String?
+  shippingCity         String?
+  shippingState        String?
+
+  // Cliente
   userId String
 
   user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -112,6 +170,7 @@ model Order {
   @@index([userId])
   @@index([status])
   @@index([preferenceId])
+  @@index([trackingCode])
 }
 
 model OrderItem {
@@ -143,4 +202,21 @@ model EmailVerification {
   code      String
   expiresAt DateTime
   createdAt DateTime @default(now())
+}
+
+// ==========================================
+// CREDENCIAIS OAUTH DO MELHOR ENVIO
+// ==========================================
+
+model MelhorEnvioCredential {
+  id String @id @default("main")
+
+  accessToken  String
+  refreshToken String?
+
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

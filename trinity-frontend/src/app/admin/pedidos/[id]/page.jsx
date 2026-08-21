@@ -1,32 +1,46 @@
 'use client';
 
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
+
+import {
+  useParams,
+} from 'next/navigation';
+
 import {
   useCallback,
   useEffect,
   useMemo,
   useState,
 } from 'react';
+
 import {
   AlertCircle,
   ArrowLeft,
   CreditCard,
   Loader2,
+  MapPin,
   Package,
   RefreshCw,
   Save,
   ShoppingBag,
+  Truck,
   User,
 } from 'lucide-react';
+
 import toast from 'react-hot-toast';
 
-import { useAuth } from '@/context/AuthContext';
+import {
+  useAuth,
+} from '@/context/AuthContext';
 
 const API_URL = (
   process.env.NEXT_PUBLIC_API_URL ||
   'http://localhost:3001/api'
 ).replace(/\/$/, '');
+
+// ==========================================
+// STATUS
+// ==========================================
 
 const STATUS_OPTIONS = [
   {
@@ -59,27 +73,43 @@ const STATUS_OPTIONS = [
   },
 ];
 
-const VALID_STATUSES = STATUS_OPTIONS.map(
-  (option) => option.value
-);
+const VALID_STATUSES =
+  STATUS_OPTIONS.map(
+    (option) =>
+      option.value
+  );
+
+// ==========================================
+// HELPERS
+// ==========================================
 
 function normalizeId(value) {
   if (Array.isArray(value)) {
-    return String(value[0] ?? '').trim();
+    return String(
+      value[0] ?? ''
+    ).trim();
   }
 
-  return String(value ?? '').trim();
+  return String(
+    value ?? ''
+  ).trim();
 }
 
 function formatPrice(value) {
-  const number = Number(value);
+  const number =
+    Number(value);
 
   return (
-    Number.isFinite(number) ? number : 0
-  ).toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  });
+    Number.isFinite(number)
+      ? number
+      : 0
+  ).toLocaleString(
+    'pt-BR',
+    {
+      style: 'currency',
+      currency: 'BRL',
+    }
+  );
 }
 
 function formatDate(value) {
@@ -87,27 +117,61 @@ function formatDate(value) {
     return 'Data indisponível';
   }
 
-  const date = new Date(value);
+  const date =
+    new Date(value);
 
-  if (Number.isNaN(date.getTime())) {
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
     return 'Data indisponível';
   }
 
-  return date.toLocaleString('pt-BR', {
-    dateStyle: 'long',
-    timeStyle: 'short',
-  });
+  return date.toLocaleString(
+    'pt-BR',
+    {
+      dateStyle: 'long',
+      timeStyle: 'short',
+    }
+  );
 }
 
-async function readResponse(response) {
-  const text = await response.text();
+function formatZipCode(value) {
+  const numbers =
+    String(value || '')
+      .replace(/\D/g, '')
+      .slice(0, 8);
+
+  if (
+    numbers.length !== 8
+  ) {
+    return (
+      value ||
+      'Não informado'
+    );
+  }
+
+  return numbers.replace(
+    /^(\d{5})(\d{3})$/,
+    '$1-$2'
+  );
+}
+
+async function readResponse(
+  response
+) {
+  const text =
+    await response.text();
 
   if (!text) {
     return null;
   }
 
   try {
-    return JSON.parse(text);
+    return JSON.parse(
+      text
+    );
   } catch {
     throw new Error(
       `A API retornou uma resposta inválida. Status ${response.status}.`
@@ -118,12 +182,17 @@ async function readResponse(response) {
 function normalizeOrder(data) {
   if (
     data?.order &&
-    typeof data.order === 'object'
+    typeof data.order ===
+      'object'
   ) {
     return data.order;
   }
 
-  if (data && typeof data === 'object') {
+  if (
+    data &&
+    typeof data ===
+      'object'
+  ) {
     return data;
   }
 
@@ -131,9 +200,12 @@ function normalizeOrder(data) {
 }
 
 function getProductImage(item) {
-  const images = item?.product?.images;
+  const images =
+    item?.product?.images;
 
-  if (!Array.isArray(images)) {
+  if (
+    !Array.isArray(images)
+  ) {
     return '/produtos/trinity/frente.jpeg';
   }
 
@@ -159,221 +231,449 @@ function getProductImage(item) {
   );
 }
 
+function getShippingAddressLines(
+  order
+) {
+  const line1 = [
+    order?.shippingStreet,
+    order?.shippingNumber,
+  ]
+    .filter(Boolean)
+    .join(', ');
+
+  const line2 = [
+    order?.shippingComplement,
+    order?.shippingNeighborhood,
+  ]
+    .filter(Boolean)
+    .join(' • ');
+
+  const line3 = [
+    order?.shippingCity,
+    order?.shippingState,
+  ]
+    .filter(Boolean)
+    .join(' - ');
+
+  const line4 =
+    order?.shippingZipCode
+      ? `CEP ${formatZipCode(
+          order.shippingZipCode
+        )}`
+      : '';
+
+  return [
+    line1,
+    line2,
+    line3,
+    line4,
+  ].filter(Boolean);
+}
+
+// ==========================================
+// COMPONENTE
+// ==========================================
+
 export default function PedidoDetalhesAdminPage() {
-  const params = useParams();
-  const orderId = normalizeId(params?.id);
+  const params =
+    useParams();
+
+  const orderId =
+    normalizeId(
+      params?.id
+    );
 
   const {
     token,
-    loading: authLoading,
+    loading:
+      authLoading,
     logout,
   } = useAuth();
 
-  const [order, setOrder] = useState(null);
-  const [status, setStatus] = useState('');
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState('');
+  const [
+    order,
+    setOrder,
+  ] = useState(null);
 
-  const loadOrder = useCallback(
-    async (signal) => {
-      if (authLoading) {
-        return;
-      }
+  const [
+    status,
+    setStatus,
+  ] = useState('');
 
-      if (!orderId) {
-        setError(
-          'O código do pedido não foi encontrado.'
-        );
-        setLoading(false);
-        return;
-      }
+  const [
+    trackingCode,
+    setTrackingCode,
+  ] = useState('');
 
-      if (!token) {
-        setError(
-          'Sua sessão não foi encontrada. Faça login novamente.'
-        );
-        setLoading(false);
-        return;
-      }
+  const [
+    trackingUrl,
+    setTrackingUrl,
+  ] = useState('');
 
-      try {
-        setLoading(true);
-        setError('');
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
 
-        const response = await fetch(
-          `${API_URL}/orders/admin/${encodeURIComponent(
-            orderId
-          )}`,
-          {
-            method: 'GET',
-            headers: {
-              Accept: 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            cache: 'no-store',
-            signal,
-          }
-        );
+  const [
+    savingStatus,
+    setSavingStatus,
+  ] = useState(false);
 
-        const data = await readResponse(response);
+  const [
+    savingTracking,
+    setSavingTracking,
+  ] = useState(false);
 
-        if (response.status === 401) {
-          logout();
+  const [
+    error,
+    setError,
+  ] = useState('');
 
-          throw new Error(
-            'Sua sessão expirou. Entre novamente.'
-          );
-        }
+  // ========================================
+  // CARREGAR PEDIDO
+  // ========================================
 
-        if (response.status === 403) {
-          throw new Error(
-            'Você não possui permissão para acessar este pedido.'
-          );
-        }
-
-        if (response.status === 404) {
-          throw new Error(
-            'O pedido solicitado não foi encontrado.'
-          );
-        }
-
-        if (!response.ok) {
-          throw new Error(
-            data?.error ||
-              data?.message ||
-              'Não foi possível carregar o pedido.'
-          );
-        }
-
-        const normalizedOrder =
-          normalizeOrder(data);
-
-        if (!normalizedOrder) {
-          throw new Error(
-            'A API retornou um pedido inválido.'
-          );
-        }
-
-        const normalizedStatus =
-          VALID_STATUSES.includes(
-            normalizedOrder.status
-          )
-            ? normalizedOrder.status
-            : 'PENDING';
-
-        setOrder({
-          ...normalizedOrder,
-          status: normalizedStatus,
-          items: Array.isArray(
-            normalizedOrder.items
-          )
-            ? normalizedOrder.items
-            : [],
-        });
-
-        setStatus(normalizedStatus);
-      } catch (requestError) {
-        if (
-          requestError?.name === 'AbortError'
-        ) {
+  const loadOrder =
+    useCallback(
+      async (signal) => {
+        if (authLoading) {
           return;
         }
 
-        console.error(
-          'Erro ao carregar pedido:',
-          requestError
-        );
+        if (!orderId) {
+          setError(
+            'O código do pedido não foi encontrado.'
+          );
 
-        setOrder(null);
+          setLoading(
+            false
+          );
 
-        setError(
-          requestError?.message ||
-            'Não foi possível carregar o pedido.'
-        );
-      } finally {
-        if (!signal?.aborted) {
-          setLoading(false);
+          return;
         }
-      }
-    },
-    [
-      authLoading,
-      logout,
-      orderId,
-      token,
-    ]
-  );
+
+        if (!token) {
+          setError(
+            'Sua sessão não foi encontrada. Faça login novamente.'
+          );
+
+          setLoading(
+            false
+          );
+
+          return;
+        }
+
+        try {
+          setLoading(
+            true
+          );
+
+          setError(
+            ''
+          );
+
+          const response =
+            await fetch(
+              `${API_URL}/orders/admin/${encodeURIComponent(
+                orderId
+              )}`,
+              {
+                method: 'GET',
+
+                headers: {
+                  Accept:
+                    'application/json',
+
+                  Authorization:
+                    `Bearer ${token}`,
+                },
+
+                cache:
+                  'no-store',
+
+                signal,
+              }
+            );
+
+          const data =
+            await readResponse(
+              response
+            );
+
+          if (
+            response.status ===
+            401
+          ) {
+            logout();
+
+            throw new Error(
+              'Sua sessão expirou. Entre novamente.'
+            );
+          }
+
+          if (
+            response.status ===
+            403
+          ) {
+            throw new Error(
+              'Você não possui permissão para acessar este pedido.'
+            );
+          }
+
+          if (
+            response.status ===
+            404
+          ) {
+            throw new Error(
+              'O pedido solicitado não foi encontrado.'
+            );
+          }
+
+          if (!response.ok) {
+            throw new Error(
+              data?.error ||
+                data?.message ||
+                'Não foi possível carregar o pedido.'
+            );
+          }
+
+          const normalizedOrder =
+            normalizeOrder(
+              data
+            );
+
+          if (
+            !normalizedOrder
+          ) {
+            throw new Error(
+              'A API retornou um pedido inválido.'
+            );
+          }
+
+          const normalizedStatus =
+            VALID_STATUSES.includes(
+              normalizedOrder.status
+            )
+              ? normalizedOrder.status
+              : 'PENDING';
+
+          setOrder({
+            ...normalizedOrder,
+
+            status:
+              normalizedStatus,
+
+            items:
+              Array.isArray(
+                normalizedOrder.items
+              )
+                ? normalizedOrder.items
+                : [],
+          });
+
+          setStatus(
+            normalizedStatus
+          );
+
+          setTrackingCode(
+            normalizedOrder
+              .trackingCode ||
+              ''
+          );
+
+          setTrackingUrl(
+            normalizedOrder
+              .trackingUrl ||
+              ''
+          );
+        } catch (
+          requestError
+        ) {
+          if (
+            requestError?.name ===
+            'AbortError'
+          ) {
+            return;
+          }
+
+          console.error(
+            'Erro ao carregar pedido:',
+            requestError
+          );
+
+          setOrder(
+            null
+          );
+
+          setError(
+            requestError?.message ||
+              'Não foi possível carregar o pedido.'
+          );
+        } finally {
+          if (
+            !signal?.aborted
+          ) {
+            setLoading(
+              false
+            );
+          }
+        }
+      },
+      [
+        authLoading,
+        logout,
+        orderId,
+        token,
+      ]
+    );
 
   useEffect(() => {
-    const controller = new AbortController();
+    const controller =
+      new AbortController();
 
-    loadOrder(controller.signal);
+    loadOrder(
+      controller.signal
+    );
 
     return () => {
       controller.abort();
     };
   }, [loadOrder]);
 
-  const itemsTotal = useMemo(() => {
-    if (!Array.isArray(order?.items)) {
-      return 0;
-    }
+  // ========================================
+  // TOTAIS
+  // ========================================
 
-    return order.items.reduce(
-      (total, item) => {
-        const unitPrice = Number(
-          item?.unitPrice
-        );
+  const itemsTotal =
+    useMemo(() => {
+      if (
+        !Array.isArray(
+          order?.items
+        )
+      ) {
+        return 0;
+      }
 
-        const quantity = Number(
-          item?.quantity
-        );
+      return order.items.reduce(
+        (
+          total,
+          item
+        ) => {
+          const unitPrice =
+            Number(
+              item?.unitPrice
+            );
 
-        return (
-          total +
-          (Number.isFinite(unitPrice)
-            ? unitPrice
-            : 0) *
-            (Number.isFinite(quantity)
-              ? quantity
-              : 0)
-        );
-      },
-      0
+          const quantity =
+            Number(
+              item?.quantity
+            );
+
+          return (
+            total +
+            (
+              Number.isFinite(
+                unitPrice
+              )
+                ? unitPrice
+                : 0
+            ) *
+            (
+              Number.isFinite(
+                quantity
+              )
+                ? quantity
+                : 0
+            )
+          );
+        },
+        0
+      );
+    }, [order?.items]);
+
+  const totalItems =
+    useMemo(() => {
+      if (
+        !Array.isArray(
+          order?.items
+        )
+      ) {
+        return 0;
+      }
+
+      return order.items.reduce(
+        (
+          total,
+          item
+        ) => {
+          const quantity =
+            Number(
+              item?.quantity
+            );
+
+          return (
+            total +
+            (
+              Number.isFinite(
+                quantity
+              )
+                ? quantity
+                : 0
+            )
+          );
+        },
+        0
+      );
+    }, [order?.items]);
+
+  const subtotal =
+    Number(
+      order?.subtotal ??
+        itemsTotal
     );
-  }, [order?.items]);
 
-  const totalItems = useMemo(() => {
-    if (!Array.isArray(order?.items)) {
-      return 0;
-    }
-
-    return order.items.reduce(
-      (total, item) => {
-        const quantity = Number(
-          item?.quantity
-        );
-
-        return (
-          total +
-          (Number.isFinite(quantity)
-            ? quantity
-            : 0)
-        );
-      },
-      0
+  const shippingPrice =
+    Number(
+      order?.shippingPrice ||
+        0
     );
-  }, [order?.items]);
+
+  const shippingAddressLines =
+    getShippingAddressLines(
+      order
+    );
 
   const hasStatusChanged =
     Boolean(order) &&
-    VALID_STATUSES.includes(status) &&
-    status !== order.status;
+    VALID_STATUSES.includes(
+      status
+    ) &&
+    status !==
+      order.status;
+
+  const trackingChanged =
+    Boolean(order) &&
+    (
+      trackingCode.trim() !==
+        String(
+          order.trackingCode ||
+            ''
+        ).trim() ||
+      trackingUrl.trim() !==
+        String(
+          order.trackingUrl ||
+            ''
+        ).trim()
+    );
+      // ========================================
+  // ATUALIZAR STATUS
+  // ========================================
 
   async function handleStatusUpdate() {
     if (
-      saving ||
+      savingStatus ||
       !order ||
       !hasStatusChanged
     ) {
@@ -384,40 +684,62 @@ export default function PedidoDetalhesAdminPage() {
       toast.error(
         'Sua sessão expirou. Faça login novamente.'
       );
+
       return;
     }
 
-    if (!VALID_STATUSES.includes(status)) {
+    if (
+      !VALID_STATUSES.includes(
+        status
+      )
+    ) {
       toast.error(
         'Selecione um status válido.'
       );
+
       return;
     }
 
     try {
-      setSaving(true);
-
-      const response = await fetch(
-        `${API_URL}/orders/admin/${encodeURIComponent(
-          order.id
-        )}/status`,
-        {
-          method: 'PATCH',
-          headers: {
-            Accept: 'application/json',
-            'Content-Type':
-              'application/json',
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            status,
-          }),
-        }
+      setSavingStatus(
+        true
       );
 
-      const data = await readResponse(response);
+      const response =
+        await fetch(
+          `${API_URL}/orders/admin/${encodeURIComponent(
+            order.id
+          )}/status`,
+          {
+            method: 'PATCH',
 
-      if (response.status === 401) {
+            headers: {
+              Accept:
+                'application/json',
+
+              'Content-Type':
+                'application/json',
+
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            body:
+              JSON.stringify({
+                status,
+              }),
+          }
+        );
+
+      const data =
+        await readResponse(
+          response
+        );
+
+      if (
+        response.status ===
+        401
+      ) {
         logout();
 
         throw new Error(
@@ -425,13 +747,19 @@ export default function PedidoDetalhesAdminPage() {
         );
       }
 
-      if (response.status === 403) {
+      if (
+        response.status ===
+        403
+      ) {
         throw new Error(
           'Você não possui permissão para atualizar pedidos.'
         );
       }
 
-      if (response.status === 404) {
+      if (
+        response.status ===
+        404
+      ) {
         throw new Error(
           'O pedido não foi encontrado.'
         );
@@ -446,28 +774,43 @@ export default function PedidoDetalhesAdminPage() {
       }
 
       const updatedOrder =
-        normalizeOrder(data);
+        normalizeOrder(
+          data
+        );
 
       const updatedStatus =
-        updatedOrder?.status || status;
+        updatedOrder?.status ||
+        status;
 
-      setOrder((currentOrder) => ({
-        ...currentOrder,
-        ...(updatedOrder || {}),
-        status: updatedStatus,
-        items: Array.isArray(
-          updatedOrder?.items
-        )
-          ? updatedOrder.items
-          : currentOrder.items,
-      }));
+      setOrder(
+        (currentOrder) => ({
+          ...currentOrder,
 
-      setStatus(updatedStatus);
+          ...(updatedOrder ||
+            {}),
+
+          status:
+            updatedStatus,
+
+          items:
+            Array.isArray(
+              updatedOrder?.items
+            )
+              ? updatedOrder.items
+              : currentOrder.items,
+        })
+      );
+
+      setStatus(
+        updatedStatus
+      );
 
       toast.success(
         'Status do pedido atualizado com sucesso.'
       );
-    } catch (requestError) {
+    } catch (
+      requestError
+    ) {
       console.error(
         'Erro ao atualizar status:',
         requestError
@@ -478,11 +821,194 @@ export default function PedidoDetalhesAdminPage() {
           'Não foi possível atualizar o status.'
       );
     } finally {
-      setSaving(false);
+      setSavingStatus(
+        false
+      );
     }
   }
 
-  if (loading || authLoading) {
+  // ========================================
+  // SALVAR RASTREAMENTO
+  // ========================================
+
+  async function handleTrackingUpdate() {
+    if (
+      savingTracking ||
+      !order ||
+      !trackingChanged
+    ) {
+      return;
+    }
+
+    if (!token) {
+      toast.error(
+        'Sua sessão expirou. Faça login novamente.'
+      );
+
+      return;
+    }
+
+    const normalizedTrackingCode =
+      trackingCode.trim();
+
+    const normalizedTrackingUrl =
+      trackingUrl.trim();
+
+    if (
+      normalizedTrackingUrl &&
+      !/^https?:\/\//i.test(
+        normalizedTrackingUrl
+      )
+    ) {
+      toast.error(
+        'Informe uma URL de rastreamento válida começando com http:// ou https://.'
+      );
+
+      return;
+    }
+
+    try {
+      setSavingTracking(
+        true
+      );
+
+      const response =
+        await fetch(
+          `${API_URL}/orders/admin/${encodeURIComponent(
+            order.id
+          )}/tracking`,
+          {
+            method: 'PATCH',
+
+            headers: {
+              Accept:
+                'application/json',
+
+              'Content-Type':
+                'application/json',
+
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            body:
+              JSON.stringify({
+                trackingCode:
+                  normalizedTrackingCode ||
+                  null,
+
+                trackingUrl:
+                  normalizedTrackingUrl ||
+                  null,
+              }),
+          }
+        );
+
+      const data =
+        await readResponse(
+          response
+        );
+
+      if (
+        response.status ===
+        401
+      ) {
+        logout();
+
+        throw new Error(
+          'Sua sessão expirou. Entre novamente.'
+        );
+      }
+
+      if (
+        response.status ===
+        403
+      ) {
+        throw new Error(
+          'Você não possui permissão para atualizar o rastreamento.'
+        );
+      }
+
+      if (
+        response.status ===
+        404
+      ) {
+        throw new Error(
+          'O pedido não foi encontrado.'
+        );
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          data?.error ||
+            data?.message ||
+            'Não foi possível atualizar o rastreamento.'
+        );
+      }
+
+      const updatedOrder =
+        normalizeOrder(
+          data
+        );
+
+      setOrder(
+        (currentOrder) => ({
+          ...currentOrder,
+
+          ...(updatedOrder ||
+            {}),
+
+          items:
+            Array.isArray(
+              updatedOrder?.items
+            )
+              ? updatedOrder.items
+              : currentOrder.items,
+        })
+      );
+
+      setTrackingCode(
+        updatedOrder
+          ?.trackingCode ||
+          normalizedTrackingCode
+      );
+
+      setTrackingUrl(
+        updatedOrder
+          ?.trackingUrl ||
+          normalizedTrackingUrl
+      );
+
+      toast.success(
+        'Rastreamento atualizado com sucesso.'
+      );
+    } catch (
+      requestError
+    ) {
+      console.error(
+        'Erro ao atualizar rastreamento:',
+        requestError
+      );
+
+      toast.error(
+        requestError?.message ||
+          'Não foi possível atualizar o rastreamento.'
+      );
+    } finally {
+      setSavingTracking(
+        false
+      );
+    }
+  }
+
+  // ========================================
+  // LOADING
+  // ========================================
+
+  if (
+    loading ||
+    authLoading
+  ) {
     return (
       <div
         className="flex min-h-96 items-center justify-center"
@@ -497,7 +1023,14 @@ export default function PedidoDetalhesAdminPage() {
     );
   }
 
-  if (error || !order) {
+  // ========================================
+  // ERRO
+  // ========================================
+
+  if (
+    error ||
+    !order
+  ) {
     return (
       <div>
         <Link
@@ -528,7 +1061,9 @@ export default function PedidoDetalhesAdminPage() {
 
           <button
             type="button"
-            onClick={() => loadOrder()}
+            onClick={() =>
+              loadOrder()
+            }
             className="mt-7 inline-flex items-center gap-2 rounded-xl bg-white px-5 py-3 font-bold text-black transition hover:bg-zinc-200"
           >
             <RefreshCw size={18} />
@@ -538,8 +1073,7 @@ export default function PedidoDetalhesAdminPage() {
       </div>
     );
   }
-
-  return (
+    return (
     <div>
       <header className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
@@ -557,12 +1091,17 @@ export default function PedidoDetalhesAdminPage() {
 
           <h1 className="break-all text-3xl font-black sm:text-4xl">
             Pedido #
-            {String(order.id).slice(0, 8)}
+            {String(order.id).slice(
+              0,
+              8
+            )}
           </h1>
 
           <p className="mt-3 text-zinc-400">
-            Criado em{' '}
-            {formatDate(order.createdAt)}
+            Criado em{" "}
+            {formatDate(
+              order.createdAt
+            )}
           </p>
         </div>
 
@@ -570,31 +1109,42 @@ export default function PedidoDetalhesAdminPage() {
           <select
             value={status}
             onChange={(event) =>
-              setStatus(event.target.value)
+              setStatus(
+                event.target.value
+              )
             }
-            disabled={saving}
+            disabled={savingStatus}
             aria-label="Status do pedido"
             className="rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm text-white outline-none transition focus:border-white disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {STATUS_OPTIONS.map((option) => (
-              <option
-                key={option.value}
-                value={option.value}
-              >
-                {option.label}
-              </option>
-            ))}
+            {STATUS_OPTIONS.map(
+              (option) => (
+                <option
+                  key={
+                    option.value
+                  }
+                  value={
+                    option.value
+                  }
+                >
+                  {option.label}
+                </option>
+              )
+            )}
           </select>
 
           <button
             type="button"
-            onClick={handleStatusUpdate}
+            onClick={
+              handleStatusUpdate
+            }
             disabled={
-              saving || !hasStatusChanged
+              savingStatus ||
+              !hasStatusChanged
             }
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-3 font-bold text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {saving ? (
+            {savingStatus ? (
               <Loader2
                 size={18}
                 className="animate-spin"
@@ -603,33 +1153,65 @@ export default function PedidoDetalhesAdminPage() {
               <Save size={18} />
             )}
 
-            {saving
-              ? 'Salvando...'
-              : 'Atualizar status'}
+            {savingStatus
+              ? "Salvando..."
+              : "Atualizar status"}
           </button>
         </div>
       </header>
 
-      <section className="mb-8 grid gap-5 xl:grid-cols-3">
+      <section className="mb-8 grid gap-5 xl:grid-cols-4">
         <InfoCard
-          icon={<CreditCard size={22} />}
+          icon={
+            <CreditCard
+              size={22}
+            />
+          }
           label="Valor total"
-          value={formatPrice(order.total)}
+          value={formatPrice(
+            order.total
+          )}
         />
 
         <InfoCard
-          icon={<ShoppingBag size={22} />}
+          icon={
+            <ShoppingBag
+              size={22}
+            />
+          }
           label="Itens"
           value={`${totalItems}`}
         />
 
         <InfoCard
-          icon={<Package size={22} />}
+          icon={
+            <Truck
+              size={22}
+            />
+          }
+          label="Frete"
+          value={
+            shippingPrice > 0
+              ? formatPrice(
+                  shippingPrice
+                )
+              : "Grátis / não definido"
+          }
+        />
+
+        <InfoCard
+          icon={
+            <Package
+              size={22}
+            />
+          }
           label="Pagamento"
           value={
             order.paymentId
-              ? String(order.paymentId)
-              : 'Não informado'
+              ? String(
+                  order.paymentId
+                )
+              : "Não informado"
           }
           breakValue
         />
@@ -649,24 +1231,38 @@ export default function PedidoDetalhesAdminPage() {
             {order.items.length > 0 ? (
               <div className="space-y-4">
                 {order.items.map(
-                  (item, index) => {
+                  (
+                    item,
+                    index
+                  ) => {
                     const image =
-                      getProductImage(item);
+                      getProductImage(
+                        item
+                      );
 
                     const productName =
                       item?.productName ||
-                      item?.product?.name ||
-                      'Produto sem nome';
+                      item?.product
+                        ?.name ||
+                      "Produto sem nome";
 
-                    const quantity = Math.max(
-                      0,
-                      Number(item?.quantity) || 0
-                    );
+                    const quantity =
+                      Math.max(
+                        0,
+                        Number(
+                          item
+                            ?.quantity
+                        ) || 0
+                      );
 
-                    const unitPrice = Math.max(
-                      0,
-                      Number(item?.unitPrice) || 0
-                    );
+                    const unitPrice =
+                      Math.max(
+                        0,
+                        Number(
+                          item
+                            ?.unitPrice
+                        ) || 0
+                      );
 
                     return (
                       <article
@@ -677,43 +1273,57 @@ export default function PedidoDetalhesAdminPage() {
                         className="grid gap-4 rounded-2xl border border-zinc-800 bg-zinc-950 p-4 sm:grid-cols-[80px_1fr_auto] sm:items-center"
                       >
                         <img
-                          src={image}
-                          alt={productName}
+                          src={
+                            image
+                          }
+                          alt={
+                            productName
+                          }
                           loading="lazy"
                           className="h-20 w-20 rounded-xl object-cover"
                         />
 
                         <div className="min-w-0">
                           <p className="break-words font-bold text-white">
-                            {productName}
+                            {
+                              productName
+                            }
                           </p>
 
                           <p className="mt-1 text-sm text-zinc-500">
-                            Tamanho:{' '}
+                            Tamanho:{" "}
                             {item?.size ||
-                              item?.variation
+                              item
+                                ?.variation
                                 ?.size ||
-                              'N/A'}{' '}
-                            · Cor:{' '}
+                              "N/A"}{" "}
+                            · Cor:{" "}
                             {item?.color ||
-                              item?.variation
+                              item
+                                ?.variation
                                 ?.color ||
-                              'N/A'}
+                              "N/A"}
                           </p>
 
                           <p className="mt-1 text-sm text-zinc-500">
-                            Quantidade: {quantity}
+                            Quantidade:{" "}
+                            {
+                              quantity
+                            }
                           </p>
 
                           <p className="mt-1 text-sm text-zinc-500">
-                            {formatPrice(unitPrice)} por
-                            unidade
+                            {formatPrice(
+                              unitPrice
+                            )}{" "}
+                            por unidade
                           </p>
                         </div>
 
                         <p className="font-bold text-white sm:text-right">
                           {formatPrice(
-                            unitPrice * quantity
+                            unitPrice *
+                              quantity
                           )}
                         </p>
                       </article>
@@ -723,26 +1333,182 @@ export default function PedidoDetalhesAdminPage() {
               </div>
             ) : (
               <p className="rounded-2xl border border-dashed border-zinc-800 bg-zinc-950/50 p-6 text-center text-sm text-zinc-500">
-                Nenhum item foi encontrado neste
+                Nenhum item foi
+                encontrado neste
                 pedido.
               </p>
             )}
 
-            <div className="mt-6 border-t border-zinc-800 pt-5">
+            <div className="mt-6 space-y-3 border-t border-zinc-800 pt-5">
               <div className="flex items-center justify-between gap-4 text-sm text-zinc-400">
-                <span>Subtotal dos itens</span>
                 <span>
-                  {formatPrice(itemsTotal)}
+                  Subtotal dos itens
+                </span>
+
+                <span>
+                  {formatPrice(
+                    subtotal
+                  )}
                 </span>
               </div>
 
-              <div className="mt-3 flex items-center justify-between gap-4 text-lg font-black text-white">
-                <span>Total do pedido</span>
+              <div className="flex items-center justify-between gap-4 text-sm text-zinc-400">
                 <span>
-                  {formatPrice(order.total)}
+                  Frete
+                </span>
+
+                <span>
+                  {shippingPrice > 0
+                    ? formatPrice(
+                        shippingPrice
+                      )
+                    : "Grátis / não definido"}
+                </span>
+              </div>
+
+              <div className="flex items-center justify-between gap-4 border-t border-zinc-800 pt-3 text-lg font-black text-white">
+                <span>
+                  Total do pedido
+                </span>
+
+                <span>
+                  {formatPrice(
+                    order.total
+                  )}
                 </span>
               </div>
             </div>
+          </section>
+
+          <section className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-6">
+            <div className="mb-6 flex items-center gap-3">
+              <Truck size={22} />
+
+              <h2 className="text-xl font-bold">
+                Frete e rastreamento
+              </h2>
+            </div>
+
+            <div className="grid gap-5 md:grid-cols-2">
+              <InfoRow
+                label="Transportadora"
+                value={
+                  order.shippingCompany ||
+                  "Não informado"
+                }
+              />
+
+              <InfoRow
+                label="Serviço"
+                value={
+                  order.shippingService ||
+                  "Não informado"
+                }
+              />
+
+              <InfoRow
+                label="Prazo estimado"
+                value={
+                  Number(
+                    order.shippingDeadline
+                  ) > 0
+                    ? `${order.shippingDeadline} ${
+                        Number(
+                          order.shippingDeadline
+                        ) === 1
+                          ? "dia útil"
+                          : "dias úteis"
+                      }`
+                    : "Não informado"
+                }
+              />
+
+              <InfoRow
+                label="Valor do frete"
+                value={
+                  shippingPrice > 0
+                    ? formatPrice(
+                        shippingPrice
+                      )
+                    : "Grátis / não definido"
+                }
+              />
+            </div>
+
+            <div className="mt-6 grid gap-5 md:grid-cols-2">
+              <label className="block">
+                <span className="mb-2 block text-sm font-bold text-zinc-300">
+                  Código de rastreamento
+                </span>
+
+                <input
+                  type="text"
+                  value={
+                    trackingCode
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setTrackingCode(
+                      event
+                        .target
+                        .value
+                    )
+                  }
+                  placeholder="Ex: AA123456789BR"
+                  className="w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-white"
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-bold text-zinc-300">
+                  Link de rastreamento
+                </span>
+
+                <input
+                  type="url"
+                  value={
+                    trackingUrl
+                  }
+                  onChange={(
+                    event
+                  ) =>
+                    setTrackingUrl(
+                      event
+                        .target
+                        .value
+                    )
+                  }
+                  placeholder="https://..."
+                  className="w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-white"
+                />
+              </label>
+            </div>
+
+            <button
+              type="button"
+              onClick={
+                handleTrackingUpdate
+              }
+              disabled={
+                savingTracking ||
+                !trackingChanged
+              }
+              className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800 px-5 py-3 font-bold text-white transition hover:border-white disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {savingTracking ? (
+                <Loader2
+                  size={18}
+                  className="animate-spin"
+                />
+              ) : (
+                <Save size={18} />
+              )}
+
+              {savingTracking
+                ? "Salvando..."
+                : "Salvar rastreamento"}
+            </button>
           </section>
         </div>
 
@@ -760,7 +1526,8 @@ export default function PedidoDetalhesAdminPage() {
               label="Nome"
               value={
                 order.user?.name ||
-                'Não informado'
+                order.shippingName ||
+                "Não informado"
               }
             />
 
@@ -768,15 +1535,16 @@ export default function PedidoDetalhesAdminPage() {
               label="E-mail"
               value={
                 order.user?.email ||
-                'Não informado'
+                "Não informado"
               }
             />
 
             <InfoRow
               label="Telefone"
               value={
+                order.shippingPhone ||
                 order.user?.phone ||
-                'Não informado'
+                "Não informado"
               }
             />
 
@@ -784,71 +1552,55 @@ export default function PedidoDetalhesAdminPage() {
               label="CPF"
               value={
                 order.user?.cpf ||
-                'Não informado'
+                "Não informado"
               }
             />
           </section>
 
           <section className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-6">
-            <h2 className="mb-6 text-xl font-bold">
-              Endereço de entrega
-            </h2>
+            <div className="mb-6 flex items-center gap-3">
+              <MapPin size={22} />
 
-            <InfoRow
-              label="CEP"
-              value={
-                order.user?.zipCode ||
-                'Não informado'
-              }
-            />
+              <h2 className="text-xl font-bold">
+                Endereço de entrega
+              </h2>
+            </div>
 
-            <InfoRow
-              label="Endereço"
-              value={
-                [
-                  order.user?.street,
-                  order.user?.number,
-                ]
-                  .filter(Boolean)
-                  .join(', ') ||
-                'Não informado'
-              }
-            />
-
-            <InfoRow
-              label="Complemento"
-              value={
-                order.user?.complement ||
-                'Não informado'
-              }
-            />
-
-            <InfoRow
-              label="Bairro"
-              value={
-                order.user?.neighborhood ||
-                'Não informado'
-              }
-            />
-
-            <InfoRow
-              label="Cidade"
-              value={
-                [
-                  order.user?.city,
-                  order.user?.state,
-                ]
-                  .filter(Boolean)
-                  .join(' - ') ||
-                'Não informado'
-              }
-            />
+            {shippingAddressLines.length >
+            0 ? (
+              <div className="space-y-3">
+                {shippingAddressLines.map(
+                  (
+                    line,
+                    index
+                  ) => (
+                    <p
+                      key={
+                        index
+                      }
+                      className="break-words text-sm font-semibold text-zinc-200"
+                    >
+                      {line}
+                    </p>
+                  )
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-zinc-500">
+                Endereço não
+                informado.
+              </p>
+            )}
           </section>
         </div>
       </section>
     </div>
   );
 }
+
+// ==========================================
+// COMPONENTES AUXILIARES
+// ==========================================
 
 function InfoCard({
   icon,
@@ -868,11 +1620,12 @@ function InfoCard({
 
       <p
         className={[
-          'mt-4 text-2xl font-black text-white',
+          "mt-4 text-2xl font-black text-white",
+
           breakValue
-            ? 'break-all text-base'
-            : '',
-        ].join(' ')}
+            ? "break-all text-base"
+            : "",
+        ].join(" ")}
       >
         {value}
       </p>
@@ -880,7 +1633,10 @@ function InfoCard({
   );
 }
 
-function InfoRow({ label, value }) {
+function InfoRow({
+  label,
+  value,
+}) {
   return (
     <div className="border-b border-zinc-800 py-3 last:border-b-0">
       <p className="text-xs uppercase tracking-wider text-zinc-500">

@@ -3,32 +3,18 @@
 import { useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+
 import {
   CreditCard,
   LoaderCircle,
   ShoppingBag,
   Trash2,
 } from "lucide-react";
+
 import toast from "react-hot-toast";
 
 import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
-
-async function readJsonResponse(response) {
-  const text = await response.text();
-
-  if (!text) {
-    return null;
-  }
-
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new Error(
-      `O servidor retornou uma resposta inválida. Status ${response.status}.`
-    );
-  }
-}
 
 function formatPrice(value) {
   const price = Number(value);
@@ -50,10 +36,12 @@ function getProductImage(product) {
 
   return (
     product.images.find(
-      (productImage) => productImage?.isMain
+      (productImage) =>
+        productImage?.isMain
     )?.imageUrl ||
     product.images.find(
-      (productImage) => productImage?.imageUrl
+      (productImage) =>
+        productImage?.imageUrl
     )?.imageUrl ||
     "/produtos/frente.jpg.jpeg"
   );
@@ -62,43 +50,58 @@ function getProductImage(product) {
 export default function CarrinhoPage() {
   const router = useRouter();
 
-  const { cart, removeFromCart } = useCart();
+  const {
+    cart,
+    removeFromCart,
+  } = useCart();
+
   const { token } = useAuth();
 
   const [checkingOut, setCheckingOut] =
     useState(false);
 
-  const cartItems = Array.isArray(cart)
-    ? cart
-    : [];
+  const cartItems =
+    Array.isArray(cart)
+      ? cart
+      : [];
 
-  const total = useMemo(() => {
+  const subtotal = useMemo(() => {
     return cartItems.reduce(
-      (accumulator, item) => {
-        const price = Number(
-          item?.product?.price
-        );
+      (
+        accumulator,
+        item
+      ) => {
+        const price =
+          Number(
+            item?.product?.price
+          );
 
-        const quantity = Number(
-          item?.quantity
-        );
+        const quantity =
+          Number(
+            item?.quantity
+          );
 
         if (
           !Number.isFinite(price) ||
-          !Number.isFinite(quantity) ||
+          !Number.isFinite(
+            quantity
+          ) ||
           price < 0 ||
           quantity <= 0
         ) {
           return accumulator;
         }
 
-        return accumulator + price * quantity;
+        return (
+          accumulator +
+          price * quantity
+        );
       },
       0
     );
   }, [cartItems]);
 
-  async function handleCheckout() {
+  function handleCheckout() {
     if (checkingOut) {
       return;
     }
@@ -113,40 +116,56 @@ export default function CarrinhoPage() {
     }
 
     if (!cartItems.length) {
-      toast.error("Seu carrinho está vazio.");
+      toast.error(
+        "Seu carrinho está vazio."
+      );
+
       return;
     }
 
-    const invalidItem = cartItems.find(
-      (item) => {
-        const productId = Number(
-          item?.product?.id
-        );
+    const invalidItem =
+      cartItems.find(
+        (item) => {
+          const productId =
+            Number(
+              item?.product?.id
+            );
 
-        const variationId = Number(
-          item?.variation?.id
-        );
+          const variationId =
+            Number(
+              item?.variation?.id
+            );
 
-        const quantity = Number(
-          item?.quantity
-        );
+          const quantity =
+            Number(
+              item?.quantity
+            );
 
-        const unitPrice = Number(
-          item?.product?.price
-        );
+          const unitPrice =
+            Number(
+              item?.product?.price
+            );
 
-        return (
-          !Number.isInteger(productId) ||
-          productId <= 0 ||
-          !Number.isInteger(variationId) ||
-          variationId <= 0 ||
-          !Number.isInteger(quantity) ||
-          quantity <= 0 ||
-          !Number.isFinite(unitPrice) ||
-          unitPrice <= 0
-        );
-      }
-    );
+          return (
+            !Number.isInteger(
+              productId
+            ) ||
+            productId <= 0 ||
+            !Number.isInteger(
+              variationId
+            ) ||
+            variationId <= 0 ||
+            !Number.isInteger(
+              quantity
+            ) ||
+            quantity <= 0 ||
+            !Number.isFinite(
+              unitPrice
+            ) ||
+            unitPrice <= 0
+          );
+        }
+      );
 
     if (invalidItem) {
       toast.error(
@@ -156,151 +175,26 @@ export default function CarrinhoPage() {
       return;
     }
 
-    const apiUrl =
-      process.env.NEXT_PUBLIC_API_URL?.replace(
-        /\/$/,
-        ""
-      );
-
-    if (!apiUrl) {
-      toast.error(
-        "A URL da API não foi configurada no frontend."
-      );
-
-      return;
-    }
-
     try {
       setCheckingOut(true);
 
-      const orderResponse = await fetch(
-        `${apiUrl}/orders`,
-        {
-          method: "POST",
-          headers: {
-            Accept: "application/json",
-            "Content-Type":
-              "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            items: cartItems.map((item) => ({
-              productId: Number(
-                item.product.id
-              ),
-              variationId: Number(
-                item.variation.id
-              ),
-              quantity: Number(
-                item.quantity
-              ),
-            })),
-          }),
-        }
+      router.push(
+        "/checkout"
       );
-
-      const orderData =
-        await readJsonResponse(orderResponse);
-
-      if (orderResponse.status === 401) {
-        throw new Error(
-          "Sua sessão expirou. Entre novamente."
-        );
-      }
-
-      if (!orderResponse.ok) {
-        throw new Error(
-          orderData?.error ||
-            orderData?.message ||
-            "Não foi possível criar o pedido."
-        );
-      }
-
-      const order =
-        orderData?.order || orderData;
-
-      if (!order?.id) {
-        throw new Error(
-          "O pedido foi criado sem um identificador válido."
-        );
-      }
-
-      const paymentResponse = await fetch(
-        `${apiUrl}/payment/create-preference`,
-        {
-          method: "POST",
-          headers: {
-            Accept: "application/json",
-            "Content-Type":
-              "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({
-            orderId: order.id,
-          }),
-        }
-      );
-
-      const paymentData =
-        await readJsonResponse(
-          paymentResponse
-        );
-
-      if (
-        paymentResponse.status === 401
-      ) {
-        throw new Error(
-          "Sua sessão expirou. Entre novamente."
-        );
-      }
-
-      if (!paymentResponse.ok) {
-        throw new Error(
-          paymentData?.error ||
-            paymentData?.message ||
-            "Não foi possível iniciar o pagamento."
-        );
-      }
-
-      const checkoutUrl =
-        paymentData?.checkoutUrl;
-
-      if (
-        !checkoutUrl ||
-        typeof checkoutUrl !== "string"
-      ) {
-        console.error(
-          "Resposta do pagamento sem checkoutUrl:",
-          paymentData
-        );
-
-        throw new Error(
-          "O Mercado Pago não retornou a página de pagamento."
-        );
-      }
-
-      toast.success(
-        "Redirecionando para o Mercado Pago..."
-      );
-
-      window.location.assign(checkoutUrl);
     } catch (error) {
       console.error(
-        "Erro no checkout:",
+        "Erro ao abrir checkout:",
         error
       );
 
       toast.error(
-        error instanceof Error
-          ? error.message
-          : "Não foi possível finalizar a compra."
+        "Não foi possível abrir o checkout."
       );
-    } finally {
+
       setCheckingOut(false);
     }
   }
-
-  return (
+    return (
     <main className="min-h-screen bg-zinc-950 px-4 py-10 text-white sm:px-6">
       <div className="mx-auto max-w-5xl">
         <header className="mb-10">
@@ -314,7 +208,7 @@ export default function CarrinhoPage() {
 
           <p className="mt-3 text-zinc-400">
             Revise os produtos antes de seguir
-            para o pagamento.
+            para o checkout.
           </p>
         </header>
 
@@ -359,16 +253,20 @@ export default function CarrinhoPage() {
                 const variation =
                   item?.variation || null;
 
-                const quantity = Number(
-                  item?.quantity
-                );
+                const quantity =
+                  Number(
+                    item?.quantity
+                  );
 
                 const itemTotal =
-                  Number(product.price) *
-                  quantity;
+                  Number(
+                    product.price
+                  ) * quantity;
 
                 const image =
-                  getProductImage(product);
+                  getProductImage(
+                    product
+                  );
 
                 return (
                   <article
@@ -430,7 +328,9 @@ export default function CarrinhoPage() {
 
                       <button
                         type="button"
-                        disabled={checkingOut}
+                        disabled={
+                          checkingOut
+                        }
                         onClick={() =>
                           removeFromCart(
                             product.id,
@@ -455,26 +355,31 @@ export default function CarrinhoPage() {
                 );
               })}
             </section>
-
-            <aside className="h-fit rounded-3xl border border-zinc-800 bg-zinc-900/70 p-7 lg:sticky lg:top-24">
+                        <aside className="h-fit rounded-3xl border border-zinc-800 bg-zinc-900/70 p-7 lg:sticky lg:top-24">
               <h2 className="text-2xl font-bold">
                 Resumo
               </h2>
 
               <div className="mt-7 space-y-4">
                 <div className="flex justify-between gap-4 text-zinc-400">
-                  <span>Subtotal</span>
+                  <span>
+                    Subtotal
+                  </span>
 
                   <span>
-                    {formatPrice(total)}
+                    {formatPrice(
+                      subtotal
+                    )}
                   </span>
                 </div>
 
                 <div className="flex justify-between gap-4 text-zinc-400">
-                  <span>Frete</span>
+                  <span>
+                    Frete
+                  </span>
 
-                  <span className="font-semibold text-emerald-400">
-                    Grátis
+                  <span className="font-semibold text-zinc-300">
+                    Calcular no checkout
                   </span>
                 </div>
               </div>
@@ -483,23 +388,34 @@ export default function CarrinhoPage() {
 
               <div className="flex items-end justify-between gap-4">
                 <span className="font-semibold">
-                  Total
+                  Total parcial
                 </span>
 
                 <span className="text-2xl font-black">
-                  {formatPrice(total)}
+                  {formatPrice(
+                    subtotal
+                  )}
                 </span>
               </div>
 
+              <p className="mt-2 text-xs leading-5 text-zinc-500">
+                O valor final será calculado depois
+                da escolha do frete no checkout.
+              </p>
+
               <button
                 type="button"
-                onClick={handleCheckout}
+                onClick={
+                  handleCheckout
+                }
                 disabled={
                   checkingOut ||
                   cartItems.length === 0 ||
-                  total <= 0
+                  subtotal <= 0
                 }
-                aria-busy={checkingOut}
+                aria-busy={
+                  checkingOut
+                }
                 className="mt-8 flex w-full items-center justify-center gap-3 rounded-2xl bg-white py-4 text-lg font-bold text-black transition hover:-translate-y-1 hover:bg-zinc-200 disabled:cursor-not-allowed disabled:translate-y-0 disabled:opacity-60"
               >
                 {checkingOut ? (
@@ -510,7 +426,7 @@ export default function CarrinhoPage() {
                       className="animate-spin"
                     />
 
-                    Preparando pagamento...
+                    Abrindo checkout...
                   </>
                 ) : (
                   <>
@@ -519,14 +435,14 @@ export default function CarrinhoPage() {
                       aria-hidden="true"
                     />
 
-                    Finalizar compra
+                    Ir para o checkout
                   </>
                 )}
               </button>
 
               <p className="mt-4 text-center text-xs leading-5 text-zinc-500">
-                Você será redirecionado para o
-                ambiente seguro do Mercado Pago.
+                No próximo passo você confirma
+                endereço, entrega e pagamento.
               </p>
             </aside>
           </div>

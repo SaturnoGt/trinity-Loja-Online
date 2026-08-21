@@ -7,7 +7,13 @@ const {
 
 const {
   getPaymentById,
-} = require("../services/mercadoPagoService");
+} = require(
+  "../services/mercadoPagoService"
+);
+
+// ==========================================
+// STATUS DOS PEDIDOS
+// ==========================================
 
 const ORDER_STATUS = {
   PENDING: "PENDING",
@@ -19,18 +25,34 @@ const ORDER_STATUS = {
   REFUNDED: "REFUNDED",
 };
 
+// ==========================================
+// MAPEAMENTO MERCADO PAGO -> PEDIDO
+// ==========================================
+
 const PAYMENT_STATUS_MAP = {
-  approved: ORDER_STATUS.PAID,
+  approved:
+    ORDER_STATUS.PAID,
 
-  pending: ORDER_STATUS.PENDING,
-  in_process: ORDER_STATUS.PENDING,
-  authorized: ORDER_STATUS.PENDING,
+  pending:
+    ORDER_STATUS.PENDING,
 
-  rejected: ORDER_STATUS.CANCELLED,
-  cancelled: ORDER_STATUS.CANCELLED,
+  in_process:
+    ORDER_STATUS.PENDING,
 
-  refunded: ORDER_STATUS.REFUNDED,
-  charged_back: ORDER_STATUS.REFUNDED,
+  authorized:
+    ORDER_STATUS.PENDING,
+
+  rejected:
+    ORDER_STATUS.CANCELLED,
+
+  cancelled:
+    ORDER_STATUS.CANCELLED,
+
+  refunded:
+    ORDER_STATUS.REFUNDED,
+
+  charged_back:
+    ORDER_STATUS.REFUNDED,
 };
 
 const FULFILLMENT_STATUSES = [
@@ -39,15 +61,26 @@ const FULFILLMENT_STATUSES = [
   ORDER_STATUS.DELIVERED,
 ];
 
+// ==========================================
+// ERRO PERSONALIZADO
+// ==========================================
+
 class WebhookProcessingError extends Error {
   constructor(message) {
     super(message);
 
-    this.name = "WebhookProcessingError";
+    this.name =
+      "WebhookProcessingError";
   }
 }
 
-function getNotificationDataId(req) {
+// ==========================================
+// PEGAR ID DA NOTIFICAÇÃO
+// ==========================================
+
+function getNotificationDataId(
+  req
+) {
   return String(
     req.query?.["data.id"] ||
       req.body?.data?.id ||
@@ -55,7 +88,13 @@ function getNotificationDataId(req) {
   ).trim();
 }
 
-function getNotificationType(req) {
+// ==========================================
+// PEGAR TIPO DA NOTIFICAÇÃO
+// ==========================================
+
+function getNotificationType(
+  req
+) {
   return String(
     req.query?.type ||
       req.body?.type ||
@@ -66,9 +105,16 @@ function getNotificationType(req) {
     .toLowerCase();
 }
 
-function validateWebhookSignature(req) {
+// ==========================================
+// VALIDAR ASSINATURA DO WEBHOOK
+// ==========================================
+
+function validateWebhookSignature(
+  req
+) {
   const secret =
-    process.env.MERCADO_PAGO_WEBHOOK_SECRET;
+    process.env
+      .MERCADO_PAGO_WEBHOOK_SECRET;
 
   if (!secret) {
     throw new WebhookProcessingError(
@@ -76,11 +122,26 @@ function validateWebhookSignature(req) {
     );
   }
 
-  const xSignature = req.headers["x-signature"];
-  const xRequestId = req.headers["x-request-id"];
-  const dataId = getNotificationDataId(req);
+  const xSignature =
+    req.headers[
+      "x-signature"
+    ];
 
-  if (!xSignature || !xRequestId || !dataId) {
+  const xRequestId =
+    req.headers[
+      "x-request-id"
+    ];
+
+  const dataId =
+    getNotificationDataId(
+      req
+    );
+
+  if (
+    !xSignature ||
+    !xRequestId ||
+    !dataId
+  ) {
     throw new InvalidWebhookSignatureError(
       "Dados obrigatórios da assinatura não foram recebidos."
     );
@@ -94,9 +155,19 @@ function validateWebhookSignature(req) {
   });
 }
 
-function amountsMatch(firstValue, secondValue) {
-  const first = Number(firstValue);
-  const second = Number(secondValue);
+// ==========================================
+// COMPARAR VALORES
+// ==========================================
+
+function amountsMatch(
+  firstValue,
+  secondValue
+) {
+  const first =
+    Number(firstValue);
+
+  const second =
+    Number(secondValue);
 
   if (
     !Number.isFinite(first) ||
@@ -105,37 +176,44 @@ function amountsMatch(firstValue, secondValue) {
     return false;
   }
 
-  return Math.abs(first - second) < 0.01;
+  return (
+    Math.abs(
+      first - second
+    ) < 0.01
+  );
 }
+
+// ==========================================
+// RESOLVER STATUS FINAL DO PEDIDO
+// ==========================================
 
 function resolveOrderStatus(
   currentStatus,
   incomingStatus
 ) {
-  /*
-   * Reembolso é definitivo para o fluxo automático.
-   */
+  // Reembolso é definitivo
+  // para o fluxo automático.
+
   if (
-    currentStatus === ORDER_STATUS.REFUNDED
+    currentStatus ===
+    ORDER_STATUS.REFUNDED
   ) {
     return ORDER_STATUS.REFUNDED;
   }
 
-  /*
-   * Um reembolso confirmado pode substituir
-   * qualquer status anterior.
-   */
+  // Reembolso confirmado pode
+  // substituir qualquer status.
+
   if (
-    incomingStatus === ORDER_STATUS.REFUNDED
+    incomingStatus ===
+    ORDER_STATUS.REFUNDED
   ) {
     return ORDER_STATUS.REFUNDED;
   }
 
-  /*
-   * Pedidos que já avançaram na operação não
-   * devem voltar para PAID, PENDING ou CANCELLED
-   * por causa de notificações atrasadas.
-   */
+  // Pedido que já avançou na operação
+  // não deve regredir por webhook atrasado.
+
   if (
     FULFILLMENT_STATUSES.includes(
       currentStatus
@@ -144,16 +222,18 @@ function resolveOrderStatus(
     return currentStatus;
   }
 
-  /*
-   * Um pedido já pago não pode voltar para
-   * pendente ou cancelado por evento atrasado.
-   */
+  // Pedido pago não deve voltar para
+  // PENDING ou CANCELLED por evento atrasado.
+
   if (
-    currentStatus === ORDER_STATUS.PAID &&
+    currentStatus ===
+      ORDER_STATUS.PAID &&
     [
       ORDER_STATUS.PENDING,
       ORDER_STATUS.CANCELLED,
-    ].includes(incomingStatus)
+    ].includes(
+      incomingStatus
+    )
   ) {
     return currentStatus;
   }
@@ -161,25 +241,99 @@ function resolveOrderStatus(
   return incomingStatus;
 }
 
-async function updateOrderFromPayment(payment) {
-  const paymentId = String(
-    payment?.id || ""
-  ).trim();
+// ==========================================
+// INCLUDE PADRÃO
+// ==========================================
 
-  const orderId = String(
-    payment?.external_reference ||
-      payment?.metadata?.order_id ||
-      ""
-  ).trim();
+function getOrderInclude() {
+  return {
+    user: {
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+      },
+    },
 
-  const mercadoPagoStatus = String(
-    payment?.status || ""
-  )
-    .trim()
-    .toLowerCase();
+    items: {
+      include: {
+        product: {
+          include: {
+            images: true,
+          },
+        },
+
+        variation: true,
+      },
+    },
+  };
+}
+
+// ==========================================
+// DEVOLVER ESTOQUE
+// ==========================================
+
+async function restoreStock({
+  transaction,
+  items,
+}) {
+  for (const item of items) {
+    if (!item.variationId) {
+      continue;
+    }
+
+    await transaction
+      .variation
+      .update({
+        where: {
+          id:
+            item.variationId,
+        },
+
+        data: {
+          stock: {
+            increment:
+              item.quantity,
+          },
+        },
+      });
+  }
+}
+// ==========================================
+// ATUALIZAR PEDIDO A PARTIR DO PAGAMENTO
+// ==========================================
+
+async function updateOrderFromPayment(
+  payment
+) {
+  const paymentId =
+    String(
+      payment?.id || ""
+    ).trim();
+
+  const orderId =
+    String(
+      payment?.external_reference ||
+        payment?.metadata?.order_id ||
+        ""
+    ).trim();
+
+  const mercadoPagoStatus =
+    String(
+      payment?.status || ""
+    )
+      .trim()
+      .toLowerCase();
 
   const incomingOrderStatus =
-    PAYMENT_STATUS_MAP[mercadoPagoStatus];
+    PAYMENT_STATUS_MAP[
+      mercadoPagoStatus
+    ];
+
+  // ========================================
+  // VALIDAR IDENTIFICADORES
+  // ========================================
 
   if (!paymentId) {
     throw new WebhookProcessingError(
@@ -193,6 +347,10 @@ async function updateOrderFromPayment(payment) {
     );
   }
 
+  // ========================================
+  // STATUS NÃO MAPEADO
+  // ========================================
+
   if (!incomingOrderStatus) {
     console.warn(
       "Status do Mercado Pago não mapeado:",
@@ -204,19 +362,25 @@ async function updateOrderFromPayment(payment) {
 
     return {
       ignored: true,
-      reason: "PAYMENT_STATUS_NOT_MAPPED",
+      reason:
+        "PAYMENT_STATUS_NOT_MAPPED",
     };
   }
 
-  const order = await prisma.order.findUnique({
-    where: {
-      id: orderId,
-    },
+  // ========================================
+  // BUSCAR PEDIDO
+  // ========================================
 
-    include: {
-      items: true,
-    },
-  });
+  const order =
+    await prisma.order.findUnique({
+      where: {
+        id: orderId,
+      },
+
+      include: {
+        items: true,
+      },
+    });
 
   if (!order) {
     throw new WebhookProcessingError(
@@ -224,17 +388,28 @@ async function updateOrderFromPayment(payment) {
     );
   }
 
-  const currencyId = String(
-    payment?.currency_id || ""
-  )
-    .trim()
-    .toUpperCase();
+  // ========================================
+  // VALIDAR MOEDA
+  // ========================================
 
-  if (currencyId !== "BRL") {
+  const currencyId =
+    String(
+      payment?.currency_id || ""
+    )
+      .trim()
+      .toUpperCase();
+
+  if (
+    currencyId !== "BRL"
+  ) {
     throw new WebhookProcessingError(
       `Moeda inválida para o pedido ${order.id}.`
     );
   }
+
+  // ========================================
+  // VALIDAR VALOR PAGO
+  // ========================================
 
   if (
     !amountsMatch(
@@ -245,11 +420,19 @@ async function updateOrderFromPayment(payment) {
     console.error(
       "Valor do pagamento diferente do pedido:",
       {
-        orderId: order.id,
+        orderId:
+          order.id,
+
         paymentId,
-        orderTotal: String(order.total),
+
+        orderTotal:
+          String(
+            order.total
+          ),
+
         paymentTotal:
-          payment?.transaction_amount,
+          payment
+            ?.transaction_amount,
       }
     );
 
@@ -258,30 +441,33 @@ async function updateOrderFromPayment(payment) {
     );
   }
 
-  /*
-   * Um pedido não deve trocar de pagamento depois
-   * de já estar associado a outro paymentId.
-   */
+  // ========================================
+  // VALIDAR PAYMENT ID DO PEDIDO
+  // ========================================
+
   if (
     order.paymentId &&
-    String(order.paymentId) !== paymentId
+    String(
+      order.paymentId
+    ) !== paymentId
   ) {
     throw new WebhookProcessingError(
       "O pedido já está relacionado a outro pagamento."
     );
   }
 
-  /*
-   * Também impede que o mesmo pagamento seja
-   * associado a dois pedidos diferentes.
-   */
+  // ========================================
+  // IMPEDIR MESMO PAGAMENTO EM DOIS PEDIDOS
+  // ========================================
+
   const existingPaymentOrder =
     await prisma.order.findFirst({
       where: {
         paymentId,
 
         NOT: {
-          id: order.id,
+          id:
+            order.id,
         },
       },
 
@@ -290,11 +476,17 @@ async function updateOrderFromPayment(payment) {
       },
     });
 
-  if (existingPaymentOrder) {
+  if (
+    existingPaymentOrder
+  ) {
     throw new WebhookProcessingError(
       "Este pagamento já está relacionado a outro pedido."
     );
   }
+
+  // ========================================
+  // RESOLVER STATUS FINAL
+  // ========================================
 
   const resolvedOrderStatus =
     resolveOrderStatus(
@@ -302,193 +494,377 @@ async function updateOrderFromPayment(payment) {
       incomingOrderStatus
     );
 
+  // ========================================
+  // REEMBOLSO / CHARGEBACK
+  // ========================================
+
+  if (
+    incomingOrderStatus ===
+    ORDER_STATUS.REFUNDED
+  ) {
+    const updatedOrder =
+      await prisma.$transaction(
+        async (
+          transaction
+        ) => {
+          const refundClaim =
+            await transaction
+              .order
+              .updateMany({
+                where: {
+                  id:
+                    order.id,
+
+                  status: {
+                    not:
+                      ORDER_STATUS
+                        .REFUNDED,
+                  },
+                },
+
+                data: {
+                  status:
+                    ORDER_STATUS
+                      .REFUNDED,
+
+                  paymentId,
+                },
+              });
+
+          const refundWasClaimed =
+            refundClaim.count ===
+            1;
+
+          if (
+            refundWasClaimed &&
+            order.stockReducedAt
+          ) {
+            await restoreStock({
+              transaction,
+
+              items:
+                order.items,
+            });
+          }
+
+          return transaction
+            .order
+            .findUnique({
+              where: {
+                id:
+                  order.id,
+              },
+
+              include:
+                getOrderInclude(),
+            });
+        }
+      );
+
+    const alreadyRefunded =
+      order.status ===
+      ORDER_STATUS.REFUNDED;
+
+    return {
+      ignored:
+        alreadyRefunded,
+
+      reason:
+        alreadyRefunded
+          ? "REFUND_ALREADY_PROCESSED"
+          : null,
+
+      order:
+        updatedOrder,
+    };
+  }
+
+  // ========================================
+  // PAGAMENTO APROVADO
+  // ========================================
+
   const shouldReduceStock =
-    mercadoPagoStatus === "approved" &&
-    !order.stockReducedAt;
+    mercadoPagoStatus ===
+      "approved" &&
+    !order.stockReducedAt &&
+    order.status !==
+      ORDER_STATUS.REFUNDED;
 
-  const updatedOrder = await prisma.$transaction(
-    async (transaction) => {
-      let stockWasClaimed = false;
+  const updatedOrder =
+    await prisma.$transaction(
+      async (
+        transaction
+      ) => {
+        let stockWasClaimed =
+          false;
 
-      /*
-       * Somente uma execução consegue preencher
-       * stockReducedAt. Isso torna a baixa de estoque
-       * idempotente em webhooks repetidos.
-       */
-      if (shouldReduceStock) {
-        const stockClaim =
-          await transaction.order.updateMany({
+        // ====================================
+        // RESERVAR BAIXA DE ESTOQUE
+        // ====================================
+
+        if (
+          shouldReduceStock
+        ) {
+          const stockClaim =
+            await transaction
+              .order
+              .updateMany({
+                where: {
+                  id:
+                    order.id,
+
+                  stockReducedAt:
+                    null,
+
+                  status: {
+                    not:
+                      ORDER_STATUS
+                        .REFUNDED,
+                  },
+                },
+
+                data: {
+                  stockReducedAt:
+                    new Date(),
+                },
+              });
+
+          stockWasClaimed =
+            stockClaim.count ===
+            1;
+        }
+
+        // ====================================
+        // BAIXAR ESTOQUE
+        // ====================================
+
+        if (
+          stockWasClaimed
+        ) {
+          for (
+            const item of
+            order.items
+          ) {
+            if (
+              !item.variationId
+            ) {
+              throw new WebhookProcessingError(
+                `O item ${item.productName} não possui uma variação válida.`
+              );
+            }
+
+            const stockUpdate =
+              await transaction
+                .variation
+                .updateMany({
+                  where: {
+                    id:
+                      item
+                        .variationId,
+
+                    stock: {
+                      gte:
+                        item.quantity,
+                    },
+                  },
+
+                  data: {
+                    stock: {
+                      decrement:
+                        item.quantity,
+                    },
+                  },
+                });
+
+            if (
+              stockUpdate.count !==
+              1
+            ) {
+              throw new WebhookProcessingError(
+                `Estoque insuficiente para ${item.productName}, tamanho ${item.size || "não informado"}.`
+              );
+            }
+          }
+        }
+
+        // ====================================
+        // ATUALIZAR STATUS E PAGAMENTO
+        // ====================================
+
+        return transaction
+          .order
+          .update({
             where: {
-              id: order.id,
-              stockReducedAt: null,
+              id:
+                order.id,
             },
 
             data: {
-              stockReducedAt: new Date(),
+              status:
+                resolvedOrderStatus,
+
+              paymentId,
             },
+
+            include:
+              getOrderInclude(),
           });
-
-        stockWasClaimed =
-          stockClaim.count === 1;
       }
-
-      if (stockWasClaimed) {
-        for (const item of order.items) {
-          if (!item.variationId) {
-            throw new WebhookProcessingError(
-              `O item ${item.productName} não possui uma variação válida.`
-            );
-          }
-
-          const stockUpdate =
-            await transaction.variation.updateMany({
-              where: {
-                id: item.variationId,
-
-                stock: {
-                  gte: item.quantity,
-                },
-              },
-
-              data: {
-                stock: {
-                  decrement: item.quantity,
-                },
-              },
-            });
-
-          if (stockUpdate.count !== 1) {
-            throw new WebhookProcessingError(
-              `Estoque insuficiente para ${item.productName}, tamanho ${item.size || "não informado"}.`
-            );
-          }
-        }
-      }
-
-      return transaction.order.update({
-        where: {
-          id: order.id,
-        },
-
-        data: {
-          status: resolvedOrderStatus,
-          paymentId,
-        },
-
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              phone: true,
-            },
-          },
-
-          items: {
-            include: {
-              product: {
-                include: {
-                  images: true,
-                },
-              },
-
-              variation: true,
-            },
-          },
-        },
-      });
-    }
-  );
+    );
 
   const statusWasPreserved =
     resolvedOrderStatus !==
     incomingOrderStatus;
 
   return {
-    ignored: statusWasPreserved,
-    reason: statusWasPreserved
-      ? "ORDER_STATUS_PRESERVED"
-      : null,
-    order: updatedOrder,
+    ignored:
+      statusWasPreserved,
+
+    reason:
+      statusWasPreserved
+        ? "ORDER_STATUS_PRESERVED"
+        : null,
+
+    order:
+      updatedOrder,
   };
 }
+// ==========================================
+// WEBHOOK MERCADO PAGO
+// ==========================================
 
 const mercadoPagoWebhook = async (
   req,
   res
 ) => {
   try {
-    validateWebhookSignature(req);
+    // ======================================
+    // VALIDAR ASSINATURA
+    // ======================================
+
+    validateWebhookSignature(
+      req
+    );
 
     const notificationType =
-      getNotificationType(req);
+      getNotificationType(
+        req
+      );
 
     const paymentId =
-      getNotificationDataId(req);
+      getNotificationDataId(
+        req
+      );
 
-    /*
-     * Outros tipos de evento podem chegar nesta
-     * rota, mas somente pagamentos são processados.
-     */
+    // ======================================
+    // IGNORAR EVENTOS QUE NÃO SÃO PAGAMENTO
+    // ======================================
+
     if (
       notificationType &&
-      notificationType !== "payment"
+      notificationType !==
+        "payment"
     ) {
       console.log(
         "Webhook ignorado por não ser de pagamento:",
         {
           notificationType,
-          dataId: paymentId,
+          dataId:
+            paymentId,
         }
       );
 
-      return res.status(200).json({
-        received: true,
-        processed: false,
-        ignored: true,
-      });
+      return res
+        .status(200)
+        .json({
+          received: true,
+          processed: false,
+          ignored: true,
+        });
     }
+
+    // ======================================
+    // VALIDAR ID DO PAGAMENTO
+    // ======================================
 
     if (!paymentId) {
-      return res.status(400).json({
-        message:
-          "O ID do pagamento não foi informado.",
-      });
+      return res
+        .status(400)
+        .json({
+          message:
+            "O ID do pagamento não foi informado.",
+        });
     }
 
-    /*
-     * O corpo do webhook não é usado como fonte
-     * de verdade. O pagamento é consultado
-     * diretamente no Mercado Pago.
-     */
+    // ======================================
+    // BUSCAR PAGAMENTO DIRETO NO MP
+    // ======================================
+    //
+    // Não confiamos no corpo recebido.
+    // ======================================
+
     const payment =
-      await getPaymentById(paymentId);
+      await getPaymentById(
+        paymentId
+      );
+
+    // ======================================
+    // PROCESSAR PEDIDO
+    // ======================================
 
     const result =
-      await updateOrderFromPayment(payment);
+      await updateOrderFromPayment(
+        payment
+      );
 
     console.log(
       "Webhook do Mercado Pago processado:",
       {
         paymentId,
-        mercadoPagoStatus: payment.status,
+
+        mercadoPagoStatus:
+          payment?.status,
 
         orderId:
-          payment.external_reference ||
-          payment.metadata?.order_id,
+          payment
+            ?.external_reference ||
+          payment
+            ?.metadata
+            ?.order_id,
 
-        ignored: result.ignored,
-        reason: result.reason || null,
+        ignored:
+          result.ignored,
+
+        reason:
+          result.reason ||
+          null,
       }
     );
 
-    return res.status(200).json({
-      received: true,
-      processed: !result.ignored,
-      ignored: result.ignored,
-    });
+    // ======================================
+    // RESPOSTA
+    // ======================================
+
+    return res
+      .status(200)
+      .json({
+        received: true,
+
+        processed:
+          !result.ignored,
+
+        ignored:
+          result.ignored,
+
+        reason:
+          result.reason ||
+          null,
+      });
   } catch (error) {
+    // ======================================
+    // ASSINATURA INVÁLIDA
+    // ======================================
+
     if (
       error instanceof
       InvalidWebhookSignatureError
@@ -498,23 +874,35 @@ const mercadoPagoWebhook = async (
         error.message
       );
 
-      return res.status(401).json({
-        message:
-          "Assinatura do webhook inválida.",
-      });
+      return res
+        .status(401)
+        .json({
+          message:
+            "Assinatura do webhook inválida.",
+        });
     }
+
+    // ======================================
+    // OUTRO ERRO
+    // ======================================
 
     console.error(
       "Erro ao processar webhook do Mercado Pago:",
       error
     );
 
-    return res.status(500).json({
-      message:
-        "Erro ao processar webhook do Mercado Pago.",
-    });
+    return res
+      .status(500)
+      .json({
+        message:
+          "Erro ao processar webhook do Mercado Pago.",
+      });
   }
 };
+
+// ==========================================
+// EXPORTS
+// ==========================================
 
 module.exports = {
   mercadoPagoWebhook,

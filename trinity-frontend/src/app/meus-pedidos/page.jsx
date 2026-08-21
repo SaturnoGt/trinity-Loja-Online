@@ -3,103 +3,339 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useState,
 } from "react";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+
 import {
   AlertCircle,
   ArrowRight,
   CalendarDays,
+  CheckCircle2,
+  Clock3,
+  MapPin,
   Package,
   RefreshCw,
   ShoppingBag,
+  Truck,
 } from "lucide-react";
+
 import toast from "react-hot-toast";
 
-import { useAuth } from "@/context/AuthContext";
+import {
+  useAuth,
+} from "@/context/AuthContext";
+
+// ==========================================
+// STATUS DOS PEDIDOS
+// ==========================================
 
 const statusConfig = {
   PENDING: {
-    label: "Aguardando pagamento",
+    label:
+      "Aguardando pagamento",
+
     className:
       "border-amber-500/30 bg-amber-500/10 text-amber-400",
   },
 
   PAID: {
-    label: "Pagamento aprovado",
+    label:
+      "Pagamento aprovado",
+
     className:
       "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
   },
 
   PROCESSING: {
-    label: "Em preparação",
+    label:
+      "Em preparação",
+
     className:
       "border-sky-500/30 bg-sky-500/10 text-sky-400",
   },
 
   SHIPPED: {
-    label: "Enviado",
+    label:
+      "Enviado",
+
     className:
       "border-indigo-500/30 bg-indigo-500/10 text-indigo-400",
   },
 
   DELIVERED: {
-    label: "Entregue",
+    label:
+      "Entregue",
+
     className:
       "border-lime-500/30 bg-lime-500/10 text-lime-400",
   },
 
   CANCELLED: {
-    label: "Cancelado",
+    label:
+      "Cancelado",
+
     className:
       "border-red-500/30 bg-red-500/10 text-red-400",
   },
 
   REFUNDED: {
-    label: "Reembolsado",
+    label:
+      "Reembolsado",
+
     className:
       "border-blue-500/30 bg-blue-500/10 text-blue-400",
   },
 };
 
+// ==========================================
+// HELPERS
+// ==========================================
+
 function formatPrice(value) {
-  return Number(value || 0).toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
+  return Number(
+    value || 0
+  ).toLocaleString(
+    "pt-BR",
+    {
+      style:
+        "currency",
+
+      currency:
+        "BRL",
+    }
+  );
 }
 
 function formatDate(value) {
   if (!value) {
-    return "Data não informada";
+    return (
+      "Data não informada"
+    );
   }
 
-  const date = new Date(value);
+  const date =
+    new Date(value);
 
-  if (Number.isNaN(date.getTime())) {
-    return "Data não informada";
+  if (
+    Number.isNaN(
+      date.getTime()
+    )
+  ) {
+    return (
+      "Data não informada"
+    );
   }
 
-  return date.toLocaleString("pt-BR", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  });
+  return date.toLocaleString(
+    "pt-BR",
+    {
+      dateStyle:
+        "medium",
+
+      timeStyle:
+        "short",
+    }
+  );
 }
 
-async function readResponse(response) {
-  const contentType =
-    response.headers.get("content-type") || "";
+function formatShippingAddress(
+  order
+) {
+  const street =
+    String(
+      order
+        ?.shippingStreet ||
+        ""
+    ).trim();
 
-  const text = await response.text();
+  const number =
+    String(
+      order
+        ?.shippingNumber ||
+        ""
+    ).trim();
+
+  const complement =
+    String(
+      order
+        ?.shippingComplement ||
+        ""
+    ).trim();
+
+  const neighborhood =
+    String(
+      order
+        ?.shippingNeighborhood ||
+        ""
+    ).trim();
+
+  const city =
+    String(
+      order
+        ?.shippingCity ||
+        ""
+    ).trim();
+
+  const state =
+    String(
+      order
+        ?.shippingState ||
+        ""
+    ).trim();
+
+  const zipCode =
+    String(
+      order
+        ?.shippingZipCode ||
+        ""
+    ).trim();
+
+  const firstLine = [
+    street,
+    number,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  const secondLine = [
+    complement,
+    neighborhood,
+  ]
+    .filter(Boolean)
+    .join(" • ");
+
+  const thirdLine = [
+    city,
+    state,
+  ]
+    .filter(Boolean)
+    .join(" - ");
+
+  const parts = [
+    firstLine,
+    secondLine,
+    thirdLine,
+    zipCode
+      ? `CEP ${zipCode}`
+      : "",
+  ].filter(Boolean);
+
+  return parts.join(
+    " | "
+  );
+}
+
+function getShippingLabel(
+  order
+) {
+  const company =
+    String(
+      order
+        ?.shippingCompany ||
+        ""
+    ).trim();
+
+  const service =
+    String(
+      order
+        ?.shippingService ||
+        ""
+    ).trim();
+
+  if (
+    company &&
+    service
+  ) {
+    return `${company} • ${service}`;
+  }
+
+  return (
+    company ||
+    service ||
+    "Frete ainda não definido"
+  );
+}
+
+function getShippingDeadlineText(
+  order
+) {
+  const deadline =
+    Number(
+      order
+        ?.shippingDeadline
+    );
+
+  if (
+    !Number.isFinite(
+      deadline
+    ) ||
+    deadline <= 0
+  ) {
+    return (
+      "Prazo não informado"
+    );
+  }
+
+  return `${deadline} ${
+    deadline === 1
+      ? "dia útil"
+      : "dias úteis"
+  }`;
+}
+
+function getTrackingText(
+  order
+) {
+  if (
+    order?.trackingCode
+  ) {
+    return String(
+      order.trackingCode
+    );
+  }
+
+  if (
+    order?.status ===
+    "SHIPPED"
+  ) {
+    return (
+      "Código de rastreio ainda não informado"
+    );
+  }
+
+  return (
+    "Rastreamento disponível após o envio"
+  );
+}
+
+async function readResponse(
+  response
+) {
+  const contentType =
+    response.headers.get(
+      "content-type"
+    ) || "";
+
+  const text =
+    await response.text();
 
   if (!text) {
     return null;
   }
 
-  if (contentType.includes("application/json")) {
+  if (
+    contentType.includes(
+      "application/json"
+    )
+  ) {
     try {
-      return JSON.parse(text);
+      return JSON.parse(
+        text
+      );
     } catch {
       throw new Error(
         "A API retornou um JSON inválido."
@@ -108,8 +344,16 @@ async function readResponse(response) {
   }
 
   if (
-    text.trim().startsWith("<!DOCTYPE") ||
-    text.trim().startsWith("<html")
+    text
+      .trim()
+      .startsWith(
+        "<!DOCTYPE"
+      ) ||
+    text
+      .trim()
+      .startsWith(
+        "<html"
+      )
   ) {
     throw new Error(
       `A rota de pedidos não foi encontrada. Status ${response.status}.`
@@ -117,111 +361,198 @@ async function readResponse(response) {
   }
 
   return {
-    message: text,
+    message:
+      text,
   };
 }
 
+// ==========================================
+// COMPONENTE PRINCIPAL
+// ==========================================
+
 export default function MeusPedidosPage() {
-  const router = useRouter();
+  const router =
+    useRouter();
 
   const {
     token,
-    loading: authLoading,
+    loading:
+      authLoading,
     isAuthenticated,
   } = useAuth();
 
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [
+    orders,
+    setOrders,
+  ] = useState([]);
 
-  const loadOrders = useCallback(async () => {
-    if (!token) {
-      setLoading(false);
-      return;
-    }
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
 
-    const apiUrl =
-      process.env.NEXT_PUBLIC_API_URL;
+  const [
+    error,
+    setError,
+  ] = useState("");
 
-    if (!apiUrl) {
-      const message =
-        "A URL da API não foi configurada no frontend.";
+  const loadOrders =
+    useCallback(
+      async () => {
+        if (!token) {
+          setLoading(
+            false
+          );
 
-      setError(message);
-      setLoading(false);
-      toast.error(message);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError("");
-
-      const response = await fetch(
-        `${apiUrl}/orders/my-orders`,
-        {
-          method: "GET",
-
-          headers: {
-            Accept: "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-
-          cache: "no-store",
+          return;
         }
-      );
 
-      const data = await readResponse(response);
+        const apiUrl =
+          process.env
+            .NEXT_PUBLIC_API_URL;
 
-      if (response.status === 401) {
-        toast.error(
-          "Sua sessão expirou. Faça login novamente."
-        );
+        if (!apiUrl) {
+          const message =
+            "A URL da API não foi configurada no frontend.";
 
-        router.replace("/login");
-        return;
-      }
+          setError(
+            message
+          );
 
-      if (!response.ok) {
-        throw new Error(
-          data?.error ||
-            data?.message ||
-            `Erro ${response.status} ao buscar pedidos.`
-        );
-      }
+          setLoading(
+            false
+          );
 
-      const orderList = Array.isArray(data)
-        ? data
-        : Array.isArray(data?.orders)
-          ? data.orders
-          : [];
+          toast.error(
+            message
+          );
 
-      setOrders(orderList);
-    } catch (requestError) {
-      console.error(
-        "Erro ao carregar pedidos:",
-        requestError
-      );
+          return;
+        }
 
-      const message =
-        requestError?.message ||
-        "Não foi possível carregar seus pedidos.";
+        try {
+          setLoading(
+            true
+          );
 
-      setError(message);
-      toast.error(message);
-    } finally {
-      setLoading(false);
-    }
-  }, [router, token]);
+          setError(
+            ""
+          );
+
+          const response =
+            await fetch(
+              `${apiUrl}/orders/my-orders`,
+              {
+                method:
+                  "GET",
+
+                headers: {
+                  Accept:
+                    "application/json",
+
+                  Authorization:
+                    `Bearer ${token}`,
+                },
+
+                cache:
+                  "no-store",
+              }
+            );
+
+          const data =
+            await readResponse(
+              response
+            );
+
+          if (
+            response.status ===
+            401
+          ) {
+            toast.error(
+              "Sua sessão expirou. Faça login novamente."
+            );
+
+            router.replace(
+              "/login"
+            );
+
+            return;
+          }
+
+          if (
+            !response.ok
+          ) {
+            throw new Error(
+              data?.error ||
+                data?.message ||
+                `Erro ${response.status} ao buscar pedidos.`
+            );
+          }
+
+          const orderList =
+            Array.isArray(
+              data
+            )
+              ? data
+              : Array.isArray(
+                    data?.orders
+                  )
+                ? data.orders
+                : [];
+
+          setOrders(
+            orderList
+          );
+        } catch (
+          requestError
+        ) {
+          console.error(
+            "Erro ao carregar pedidos:",
+            requestError
+          );
+
+          const message =
+            requestError
+              ?.message ||
+            "Não foi possível carregar seus pedidos.";
+
+          setError(
+            message
+          );
+
+          toast.error(
+            message
+          );
+        } finally {
+          setLoading(
+            false
+          );
+        }
+      },
+      [
+        router,
+        token,
+      ]
+    );
 
   useEffect(() => {
-    if (authLoading) {
+    if (
+      authLoading
+    ) {
       return;
     }
 
-    if (!isAuthenticated) {
-      router.replace("/login");
-      setLoading(false);
+    if (
+      !isAuthenticated
+    ) {
+      router.replace(
+        "/login"
+      );
+
+      setLoading(
+        false
+      );
+
       return;
     }
 
@@ -233,11 +564,40 @@ export default function MeusPedidosPage() {
     router,
   ]);
 
-  if (authLoading || loading) {
-    return <OrdersLoading />;
+  const totalOrders =
+    useMemo(
+      () =>
+        orders.length,
+      [orders]
+    );
+
+  const activeOrders =
+    useMemo(
+      () =>
+        orders.filter(
+          (order) =>
+            ![
+              "DELIVERED",
+              "CANCELLED",
+              "REFUNDED",
+            ].includes(
+              order.status
+            )
+        ).length,
+      [orders]
+    );
+      if (
+    authLoading ||
+    loading
+  ) {
+    return (
+      <OrdersLoading />
+    );
   }
 
-  if (!isAuthenticated) {
+  if (
+    !isAuthenticated
+  ) {
     return null;
   }
 
@@ -255,18 +615,37 @@ export default function MeusPedidosPage() {
             </h1>
 
             <p className="mt-3 text-zinc-400">
-              Acompanhe pagamentos, produtos e o
-              histórico das suas compras.
+              Acompanhe pagamento, preparação, envio
+              e entrega dos seus pedidos.
             </p>
           </div>
 
-          <span className="text-sm text-zinc-500">
-            {orders.length}{" "}
-            {orders.length === 1
-              ? "pedido"
-              : "pedidos"}
-          </span>
+          <button
+            type="button"
+            onClick={loadOrders}
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm font-bold text-zinc-300 transition hover:border-zinc-500 hover:text-white"
+          >
+            <RefreshCw
+              size={17}
+            />
+
+            Atualizar
+          </button>
         </header>
+
+        <section className="mb-8 grid gap-4 sm:grid-cols-2">
+          <MetricCard
+            label="Total de pedidos"
+            value={totalOrders}
+            icon={ShoppingBag}
+          />
+
+          <MetricCard
+            label="Pedidos em andamento"
+            value={activeOrders}
+            icon={Truck}
+          />
+        </section>
 
         {error ? (
           <section className="rounded-3xl border border-red-500/30 bg-red-500/10 p-8 text-center">
@@ -298,19 +677,70 @@ export default function MeusPedidosPage() {
           <div className="space-y-6">
             {orders.map((order) => {
               const status =
-                statusConfig[order.status] || {
+                statusConfig[
+                  order.status
+                ] || {
                   label:
                     order.status ||
                     "Status desconhecido",
+
                   className:
                     "border-zinc-600 bg-zinc-800 text-zinc-300",
                 };
 
-              const items = Array.isArray(
-                order.items
-              )
-                ? order.items
-                : [];
+              const items =
+                Array.isArray(
+                  order.items
+                )
+                  ? order.items
+                  : [];
+
+              const subtotal =
+                Number(
+                  order.subtotal ??
+                    items.reduce(
+                      (
+                        total,
+                        item
+                      ) =>
+                        total +
+                        Number(
+                          item.unitPrice ||
+                            0
+                        ) *
+                          Number(
+                            item.quantity ||
+                              0
+                          ),
+                      0
+                    )
+                );
+
+              const shippingPrice =
+                Number(
+                  order.shippingPrice ||
+                    0
+                );
+
+              const shippingAddress =
+                formatShippingAddress(
+                  order
+                );
+
+              const shippingLabel =
+                getShippingLabel(
+                  order
+                );
+
+              const shippingDeadline =
+                getShippingDeadlineText(
+                  order
+                );
+
+              const trackingText =
+                getTrackingText(
+                  order
+                );
 
               return (
                 <article
@@ -325,7 +755,9 @@ export default function MeusPedidosPage() {
 
                       <p className="mt-2 font-mono font-bold">
                         #
-                        {String(order.id).slice(
+                        {String(
+                          order.id
+                        ).slice(
                           0,
                           8
                         )}
@@ -350,7 +782,9 @@ export default function MeusPedidosPage() {
                       </p>
 
                       <p className="mt-2 flex items-center gap-2 text-sm text-zinc-300">
-                        <CalendarDays size={16} />
+                        <CalendarDays
+                          size={16}
+                        />
 
                         {formatDate(
                           order.createdAt
@@ -364,26 +798,118 @@ export default function MeusPedidosPage() {
                       </p>
 
                       <p className="mt-2 text-xl font-black">
-                        {formatPrice(order.total)}
+                        {formatPrice(
+                          order.total
+                        )}
                       </p>
                     </div>
                   </div>
 
-                  <div className="space-y-4 p-6">
+                  <div className="grid gap-6 border-b border-zinc-800 p-6 lg:grid-cols-3">
+                    <InfoCard
+                      icon={MapPin}
+                      title="Endereço de entrega"
+                      text={
+                        shippingAddress ||
+                        "Endereço não informado"
+                      }
+                    />
+
+                    <InfoCard
+                      icon={Truck}
+                      title="Frete"
+                      text={
+                        shippingLabel
+                      }
+                      secondaryText={
+                        shippingDeadline
+                      }
+                    />
+
+                    <InfoCard
+                      icon={Clock3}
+                      title="Rastreamento"
+                      text={
+                        trackingText
+                      }
+                      secondaryText={
+                        order.trackingUrl
+                          ? "Link disponível"
+                          : null
+                      }
+                    />
+                  </div>
+
+                  <div className="grid gap-6 border-b border-zinc-800 p-6 md:grid-cols-3">
+                    <SummaryBox
+                      label="Subtotal"
+                      value={formatPrice(
+                        subtotal
+                      )}
+                    />
+
+                    <SummaryBox
+                      label="Frete"
+                      value={
+                        shippingPrice > 0
+                          ? formatPrice(
+                              shippingPrice
+                            )
+                          : "Grátis / não definido"
+                      }
+                    />
+
+                    <SummaryBox
+                      label="Total"
+                      value={formatPrice(
+                        order.total
+                      )}
+                      highlight
+                    />
+                  </div>
+                                    <div className="space-y-4 p-6">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <h2 className="text-lg font-black">
+                          Produtos
+                        </h2>
+
+                        <p className="mt-1 text-sm text-zinc-500">
+                          {items.length}{" "}
+                          {items.length === 1
+                            ? "item"
+                            : "itens"}
+                        </p>
+                      </div>
+
+                      {order.trackingUrl ? (
+                        <a
+                          href={order.trackingUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm font-bold text-white transition hover:border-white"
+                        >
+                          <Truck size={17} />
+                          Rastrear pedido
+                        </a>
+                      ) : null}
+                    </div>
+
                     {items.length === 0 ? (
                       <p className="text-sm text-zinc-500">
-                        Nenhum item encontrado neste
-                        pedido.
+                        Nenhum item encontrado neste pedido.
                       </p>
                     ) : (
                       items.map((item) => {
-                        const quantity = Number(
-                          item.quantity || 1
-                        );
+                        const quantity =
+                          Number(
+                            item.quantity || 1
+                          );
 
-                        const unitPrice = Number(
-                          item.unitPrice || 0
-                        );
+                        const unitPrice =
+                          Number(
+                            item.unitPrice || 0
+                          );
 
                         return (
                           <div
@@ -398,33 +924,34 @@ export default function MeusPedidosPage() {
                               <div>
                                 <p className="font-semibold">
                                   {item.productName ||
-                                    item.product
-                                      ?.name ||
+                                    item.product?.name ||
                                     "Produto"}
                                 </p>
 
-                                {(item.variation?.size ||
-                                  item.variation
-                                    ?.color) && (
+                                {(item.size ||
+                                  item.color ||
+                                  item.variation?.size ||
+                                  item.variation?.color) && (
                                   <p className="mt-1 text-sm text-zinc-400">
-                                    {item.variation
-                                      ?.size || ""}
+                                    {item.size ||
+                                      item.variation?.size ||
+                                      ""}
 
-                                    {item.variation
-                                      ?.size &&
-                                    item.variation
-                                      ?.color
+                                    {(item.size ||
+                                      item.variation?.size) &&
+                                    (item.color ||
+                                      item.variation?.color)
                                       ? " • "
                                       : ""}
 
-                                    {item.variation
-                                      ?.color || ""}
+                                    {item.color ||
+                                      item.variation?.color ||
+                                      ""}
                                   </p>
                                 )}
 
                                 <p className="mt-1 text-sm text-zinc-500">
-                                  Quantidade:{" "}
-                                  {quantity}
+                                  Quantidade: {quantity}
                                 </p>
                               </div>
                             </div>
@@ -440,6 +967,51 @@ export default function MeusPedidosPage() {
                       })
                     )}
                   </div>
+
+                  {order.status ===
+                    "DELIVERED" && (
+                    <div className="border-t border-zinc-800 bg-lime-500/5 p-5">
+                      <div className="flex items-center gap-3 text-lime-300">
+                        <CheckCircle2
+                          size={20}
+                        />
+
+                        <p className="text-sm font-bold">
+                          Pedido entregue com sucesso.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {order.status ===
+                    "CANCELLED" && (
+                    <div className="border-t border-zinc-800 bg-red-500/5 p-5">
+                      <div className="flex items-center gap-3 text-red-300">
+                        <AlertCircle
+                          size={20}
+                        />
+
+                        <p className="text-sm font-bold">
+                          Este pedido foi cancelado.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {order.status ===
+                    "REFUNDED" && (
+                    <div className="border-t border-zinc-800 bg-blue-500/5 p-5">
+                      <div className="flex items-center gap-3 text-blue-300">
+                        <RefreshCw
+                          size={20}
+                        />
+
+                        <p className="text-sm font-bold">
+                          Este pedido foi reembolsado.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                 </article>
               );
             })}
@@ -449,6 +1021,111 @@ export default function MeusPedidosPage() {
     </main>
   );
 }
+
+// ==========================================
+// CARDS DE MÉTRICA
+// ==========================================
+
+function MetricCard({
+  label,
+  value,
+  icon: Icon,
+}) {
+  return (
+    <div className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5">
+      <div className="flex items-center gap-3">
+        <div className="rounded-2xl bg-zinc-800 p-3 text-zinc-300">
+          <Icon size={20} />
+        </div>
+
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
+            {label}
+          </p>
+
+          <p className="mt-1 text-2xl font-black text-white">
+            {value}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// CARD DE INFORMAÇÃO
+// ==========================================
+
+function InfoCard({
+  icon: Icon,
+  title,
+  text,
+  secondaryText,
+}) {
+  return (
+    <div className="rounded-2xl border border-zinc-800 bg-zinc-950/50 p-4">
+      <div className="flex items-start gap-3">
+        <div className="rounded-xl bg-zinc-800 p-2.5 text-zinc-300">
+          <Icon size={18} />
+        </div>
+
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
+            {title}
+          </p>
+
+          <p className="mt-2 break-words text-sm font-semibold text-zinc-200">
+            {text}
+          </p>
+
+          {secondaryText ? (
+            <p className="mt-1 text-xs leading-5 text-zinc-500">
+              {secondaryText}
+            </p>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ==========================================
+// RESUMO FINANCEIRO
+// ==========================================
+
+function SummaryBox({
+  label,
+  value,
+  highlight = false,
+}) {
+  return (
+    <div
+      className={`rounded-2xl border p-4 ${
+        highlight
+          ? "border-white/20 bg-white/5"
+          : "border-zinc-800 bg-zinc-950/50"
+      }`}
+    >
+      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
+        {label}
+      </p>
+
+      <p
+        className={`mt-2 font-black ${
+          highlight
+            ? "text-xl text-white"
+            : "text-zinc-200"
+        }`}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+// ==========================================
+// SEM PEDIDOS
+// ==========================================
 
 function EmptyOrders() {
   return (
@@ -463,8 +1140,8 @@ function EmptyOrders() {
 
       <p className="mx-auto mt-3 max-w-md text-sm leading-6 text-zinc-500">
         Quando você finalizar uma compra, os
-        produtos e o andamento do pedido aparecerão
-        aqui.
+        produtos, o pagamento e o andamento da
+        entrega aparecerão aqui.
       </p>
 
       <Link
@@ -478,15 +1155,24 @@ function EmptyOrders() {
   );
 }
 
+// ==========================================
+// LOADING
+// ==========================================
+
 function OrdersLoading() {
   return (
     <main className="min-h-screen bg-zinc-950 px-4 py-12 text-white sm:px-6 lg:px-8">
       <div className="mx-auto max-w-6xl animate-pulse">
         <div className="mb-10 h-10 w-64 rounded-xl bg-zinc-800" />
 
+        <div className="mb-8 grid gap-4 sm:grid-cols-2">
+          <div className="h-24 rounded-3xl bg-zinc-900" />
+          <div className="h-24 rounded-3xl bg-zinc-900" />
+        </div>
+
         <div className="space-y-6">
-          <div className="h-72 rounded-3xl bg-zinc-900" />
-          <div className="h-72 rounded-3xl bg-zinc-900" />
+          <div className="h-96 rounded-3xl bg-zinc-900" />
+          <div className="h-96 rounded-3xl bg-zinc-900" />
         </div>
       </div>
     </main>

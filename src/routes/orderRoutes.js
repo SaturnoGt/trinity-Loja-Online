@@ -14,12 +14,18 @@ const {
   getAllOrders,
   getOrderById,
   updateOrderStatus,
+  updateOrderTracking,
   getDashboard,
-} = require("../controllers/orderController");
+} = require(
+  "../controllers/orderController"
+);
 
 const router = express.Router();
 
-// Rotas do cliente
+// ==========================================
+// ROTAS DO CLIENTE
+// ==========================================
+
 router.post(
   "/",
   authMiddleware,
@@ -32,7 +38,10 @@ router.get(
   getMyOrders
 );
 
-// Rotas administrativas
+// ==========================================
+// ROTAS ADMINISTRATIVAS
+// ==========================================
+
 router.get(
   "/admin",
   authMiddleware,
@@ -52,6 +61,13 @@ router.patch(
   authMiddleware,
   adminMiddleware,
   updateOrderStatus
+);
+
+router.patch(
+  "/admin/:id/tracking",
+  authMiddleware,
+  adminMiddleware,
+  updateOrderTracking
 );
 
 router.get(

@@ -14,7 +14,10 @@ const productController = require(
 
 const router = express.Router();
 
-// Rotas públicas
+// =====================
+// ROTAS PÚBLICAS
+// =====================
+
 router.get(
   "/",
   productController.getAllProducts
@@ -25,7 +28,10 @@ router.get(
   productController.getProductById
 );
 
-// Rotas administrativas
+// =====================
+// ROTAS ADMINISTRATIVAS
+// =====================
+
 router.post(
   "/",
   authMiddleware,
@@ -33,6 +39,23 @@ router.post(
   productController.createProduct
 );
 
+// Atualizar estoque de uma variação específica
+router.patch(
+  "/variations/:variationId/stock",
+  authMiddleware,
+  adminMiddleware,
+  productController.updateVariationStock
+);
+
+// Atualizar apenas dados básicos do produto
+router.patch(
+  "/:id/basic",
+  authMiddleware,
+  adminMiddleware,
+  productController.updateProductBasic
+);
+
+// Atualização completa do produto
 router.put(
   "/:id",
   authMiddleware,
@@ -40,6 +63,7 @@ router.put(
   productController.updateProduct
 );
 
+// Excluir produto
 router.delete(
   "/:id",
   authMiddleware,

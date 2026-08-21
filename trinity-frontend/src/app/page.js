@@ -12,26 +12,6 @@ import Newsletter from '@/components/home/Newsletter';
 
 const categoryAliases = {
   Todos: [],
-  Camisetas: [
-    'camisetas',
-    'camiseta',
-    'camisas',
-    'camisa',
-  ],
-  Oversized: [
-    'oversized',
-    'oversize',
-  ],
-  Moletons: [
-    'moletons',
-    'moletom',
-  ],
-  Acessórios: [
-    'acessórios',
-    'acessorios',
-    'acessório',
-    'acessorio',
-  ],
 };
 
 export default function HomePage() {
@@ -64,6 +44,7 @@ export default function HomePage() {
 
         if (active) {
           setProducts([]);
+
           setError(
             err?.message ||
               'Não foi possível carregar os produtos.'

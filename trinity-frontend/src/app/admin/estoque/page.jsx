@@ -1,20 +1,29 @@
 'use client';
 
 import Link from 'next/link';
+
 import {
   AlertCircle,
   AlertTriangle,
   Boxes,
+  Check,
+  LoaderCircle,
+  Minus,
   Package,
+  Plus,
   RefreshCw,
+  Save,
   Search,
 } from 'lucide-react';
+
 import {
   useCallback,
   useEffect,
   useMemo,
   useState,
 } from 'react';
+
+import toast from 'react-hot-toast';
 
 function getStoredToken() {
   if (typeof window === 'undefined') {
@@ -28,13 +37,40 @@ function getStoredToken() {
   );
 }
 
+function normalizeStock(value) {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) {
+    return 0;
+  }
+
+  return Math.max(
+    0,
+    Math.floor(parsed)
+  );
+}
+
 export default function EstoquePage() {
-  const [products, setProducts] = useState([]);
-  const [search, setSearch] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [products, setProducts] =
+    useState([]);
+
+  const [search, setSearch] =
+    useState('');
+
+  const [loading, setLoading] =
+    useState(true);
+
   const [refreshing, setRefreshing] =
     useState(false);
-  const [error, setError] = useState('');
+
+  const [error, setError] =
+    useState('');
+
+  const [draftStock, setDraftStock] =
+    useState({});
+
+  const [savingIds, setSavingIds] =
+    useState({});
 
   const loadProducts = useCallback(
     async ({ refresh = false } = {}) => {
@@ -48,7 +84,8 @@ export default function EstoquePage() {
         setError('');
 
         const apiUrl =
-          process.env.NEXT_PUBLIC_API_URL;
+          process.env
+            .NEXT_PUBLIC_API_URL;
 
         if (!apiUrl) {
           throw new Error(
@@ -56,24 +93,28 @@ export default function EstoquePage() {
           );
         }
 
-        const token = getStoredToken();
+        const token =
+          getStoredToken();
 
-        const response = await fetch(
-          `${apiUrl}/products`,
-          {
-            cache: 'no-store',
-            headers: token
-              ? {
-                  Authorization: `Bearer ${token}`,
-                }
-              : {},
-          }
-        );
+        const response =
+          await fetch(
+            `${apiUrl}/products`,
+            {
+              cache: 'no-store',
+              headers: token
+                ? {
+                    Authorization:
+                      `Bearer ${token}`,
+                  }
+                : {},
+            }
+          );
 
         if (!response.ok) {
-          const data = await response
-            .json()
-            .catch(() => null);
+          const data =
+            await response
+              .json()
+              .catch(() => null);
 
           throw new Error(
             data?.message ||
@@ -81,10 +122,43 @@ export default function EstoquePage() {
           );
         }
 
-        const data = await response.json();
+        const data =
+          await response.json();
+
+        const normalizedProducts =
+          Array.isArray(data)
+            ? data
+            : [];
 
         setProducts(
-          Array.isArray(data) ? data : []
+          normalizedProducts
+        );
+
+        const nextDraft = {};
+
+        normalizedProducts.forEach(
+          (product) => {
+            const variations =
+              Array.isArray(
+                product.variations
+              )
+                ? product.variations
+                : [];
+
+            variations.forEach(
+              (variation) => {
+                nextDraft[
+                  variation.id
+                ] = normalizeStock(
+                  variation.stock
+                );
+              }
+            );
+          }
+        );
+
+        setDraftStock(
+          nextDraft
         );
       } catch (err) {
         console.error(
@@ -93,7 +167,7 @@ export default function EstoquePage() {
         );
 
         setError(
-          err.message ||
+          err?.message ||
             'Não foi possível carregar o estoque.'
         );
       } finally {
@@ -108,77 +182,340 @@ export default function EstoquePage() {
     loadProducts();
   }, [loadProducts]);
 
-  const stockRows = useMemo(() => {
-    return products.flatMap((product) => {
-      const variations = Array.isArray(
-        product.variations
-      )
-        ? product.variations
-        : [];
+  const stockRows =
+    useMemo(() => {
+      return products.flatMap(
+        (product) => {
+          const variations =
+            Array.isArray(
+              product.variations
+            )
+              ? product.variations
+              : [];
 
-      if (variations.length === 0) {
-        return [
-          {
-            id: `product-${product.id}`,
-            productId: product.id,
-            productName: product.name,
-            category:
-              product.category || 'Sem categoria',
-            size: 'Sem variação',
-            color: 'Sem variação',
-            stock: 0,
-          },
-        ];
+          if (
+            variations.length === 0
+          ) {
+            return [
+              {
+                id:
+                  `product-${product.id}`,
+                variationId: null,
+                productId:
+                  product.id,
+                productName:
+                  product.name,
+                category:
+                  product.category ||
+                  'Sem categoria',
+                size:
+                  'Sem variação',
+                color:
+                  'Sem variação',
+                stock: 0,
+              },
+            ];
+          }
+
+          return variations.map(
+            (variation) => ({
+              id: variation.id,
+              variationId:
+                variation.id,
+              productId:
+                product.id,
+              productName:
+                product.name,
+              category:
+                product.category ||
+                'Sem categoria',
+              size:
+                variation.size ||
+                'Único',
+              color:
+                variation.color ||
+                'Padrão',
+              stock:
+                normalizeStock(
+                  variation.stock
+                ),
+            })
+          );
+        }
+      );
+    }, [products]);
+
+  const filteredRows =
+    useMemo(() => {
+      const normalizedSearch =
+        search
+          .trim()
+          .toLowerCase();
+
+      if (!normalizedSearch) {
+        return stockRows;
       }
 
-      return variations.map((variation) => ({
-        id: variation.id,
-        productId: product.id,
-        productName: product.name,
-        category:
-          product.category || 'Sem categoria',
-        size: variation.size || 'Único',
-        color: variation.color || 'Padrão',
-        stock: Number(variation.stock || 0),
-      }));
-    });
-  }, [products]);
+      return stockRows.filter(
+        (row) =>
+          [
+            row.productName,
+            row.category,
+            row.size,
+            row.color,
+          ].some((value) =>
+            String(value)
+              .toLowerCase()
+              .includes(
+                normalizedSearch
+              )
+          )
+      );
+    }, [search, stockRows]);
 
-  const filteredRows = useMemo(() => {
-    const normalizedSearch = search
-      .trim()
-      .toLowerCase();
+  const totalUnits =
+    stockRows.reduce(
+      (total, row) =>
+        total + row.stock,
+      0
+    );
 
-    if (!normalizedSearch) {
-      return stockRows;
+  const lowStock =
+    stockRows.filter(
+      (row) =>
+        row.stock > 0 &&
+        row.stock <= 5
+    ).length;
+
+  const outOfStock =
+    stockRows.filter(
+      (row) =>
+        row.stock === 0
+    ).length;
+
+  function changeDraftStock(
+    variationId,
+    value
+  ) {
+    if (!variationId) {
+      return;
     }
 
-    return stockRows.filter((row) =>
-      [
-        row.productName,
-        row.category,
-        row.size,
-        row.color,
-      ].some((value) =>
-        String(value)
-          .toLowerCase()
-          .includes(normalizedSearch)
-      )
+    setDraftStock(
+      (current) => ({
+        ...current,
+        [variationId]:
+          normalizeStock(value),
+      })
     );
-  }, [search, stockRows]);
+  }
 
-  const totalUnits = stockRows.reduce(
-    (total, row) => total + row.stock,
-    0
-  );
+  function incrementStock(
+    variationId
+  ) {
+    if (!variationId) {
+      return;
+    }
 
-  const lowStock = stockRows.filter(
-    (row) => row.stock > 0 && row.stock <= 5
-  ).length;
+    setDraftStock(
+      (current) => ({
+        ...current,
+        [variationId]:
+          normalizeStock(
+            current[
+              variationId
+            ] || 0
+          ) + 1,
+      })
+    );
+  }
 
-  const outOfStock = stockRows.filter(
-    (row) => row.stock === 0
-  ).length;
+  function decrementStock(
+    variationId
+  ) {
+    if (!variationId) {
+      return;
+    }
+
+    setDraftStock(
+      (current) => ({
+        ...current,
+        [variationId]:
+          Math.max(
+            0,
+            normalizeStock(
+              current[
+                variationId
+              ] || 0
+            ) - 1
+          ),
+      })
+    );
+  }
+
+  function isStockChanged(
+    row
+  ) {
+    if (!row.variationId) {
+      return false;
+    }
+
+    return (
+      normalizeStock(
+        draftStock[
+          row.variationId
+        ]
+      ) !==
+      normalizeStock(row.stock)
+    );
+  }
+
+  async function saveStock(
+    row
+  ) {
+    if (!row.variationId) {
+      toast.error(
+        'Este produto não possui uma variação editável.'
+      );
+
+      return;
+    }
+
+    const apiUrl =
+      process.env
+        .NEXT_PUBLIC_API_URL;
+
+    if (!apiUrl) {
+      toast.error(
+        'NEXT_PUBLIC_API_URL não configurada.'
+      );
+
+      return;
+    }
+
+    const token =
+      getStoredToken();
+
+    if (!token) {
+      toast.error(
+        'Sua sessão não foi encontrada.'
+      );
+
+      return;
+    }
+
+    const stock =
+      normalizeStock(
+        draftStock[
+          row.variationId
+        ]
+      );
+
+    try {
+      setSavingIds(
+        (current) => ({
+          ...current,
+          [row.variationId]:
+            true,
+        })
+      );
+
+      const response =
+        await fetch(
+          `${apiUrl}/products/variations/${row.variationId}/stock`,
+          {
+            method: 'PATCH',
+
+            headers: {
+              'Content-Type':
+                'application/json',
+
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            body: JSON.stringify({
+              stock,
+            }),
+          }
+        );
+
+      const data =
+        await response
+          .json()
+          .catch(() => null);
+
+      if (!response.ok) {
+        throw new Error(
+          data?.message ||
+            'Não foi possível atualizar o estoque.'
+        );
+      }
+
+      setProducts(
+        (currentProducts) =>
+          currentProducts.map(
+            (product) => ({
+              ...product,
+
+              variations:
+                Array.isArray(
+                  product.variations
+                )
+                  ? product.variations.map(
+                      (
+                        variation
+                      ) =>
+                        variation.id ===
+                        row.variationId
+                          ? {
+                              ...variation,
+                              stock:
+                                data
+                                  ?.variation
+                                  ?.stock ??
+                                stock,
+                            }
+                          : variation
+                    )
+                  : [],
+            })
+          )
+      );
+
+      setDraftStock(
+        (current) => ({
+          ...current,
+          [row.variationId]:
+            data?.variation
+              ?.stock ??
+            stock,
+        })
+      );
+
+      toast.success(
+        `Estoque de ${row.productName} atualizado.`
+      );
+    } catch (err) {
+      console.error(
+        'Erro ao salvar estoque:',
+        err
+      );
+
+      toast.error(
+        err?.message ||
+          'Não foi possível salvar o estoque.'
+      );
+    } finally {
+      setSavingIds(
+        (current) => ({
+          ...current,
+          [row.variationId]:
+            false,
+        })
+      );
+    }
+  }
 
   return (
     <div className="space-y-8">
@@ -197,17 +534,25 @@ export default function EstoquePage() {
               </h1>
 
               <p className="mt-4 max-w-2xl leading-7 text-zinc-400">
-                Acompanhe as quantidades disponíveis
-                de cada produto, tamanho e cor.
+                Consulte, reponha e
+                corrija o estoque de
+                cada variação sem
+                precisar editar o
+                produto inteiro.
               </p>
             </div>
 
             <button
               type="button"
               onClick={() =>
-                loadProducts({ refresh: true })
+                loadProducts({
+                  refresh: true,
+                })
               }
-              disabled={loading || refreshing}
+              disabled={
+                loading ||
+                refreshing
+              }
               className="inline-flex w-fit items-center gap-2 rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm font-bold text-zinc-200 transition hover:bg-zinc-700 disabled:opacity-50"
             >
               <RefreshCw
@@ -221,7 +566,7 @@ export default function EstoquePage() {
 
               {refreshing
                 ? 'Atualizando...'
-                : 'Atualizar estoque'}
+                : 'Atualizar dados'}
             </button>
           </div>
         </div>
@@ -229,7 +574,9 @@ export default function EstoquePage() {
 
       {error && (
         <div className="flex gap-3 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-red-200">
-          <AlertCircle size={20} />
+          <AlertCircle
+            size={20}
+          />
 
           <p className="text-sm font-bold">
             {error}
@@ -240,13 +587,17 @@ export default function EstoquePage() {
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
           label="Produtos"
-          value={products.length}
+          value={
+            products.length
+          }
           icon={Package}
         />
 
         <MetricCard
           label="Variações"
-          value={stockRows.length}
+          value={
+            stockRows.length
+          }
           icon={Boxes}
         />
 
@@ -258,8 +609,13 @@ export default function EstoquePage() {
 
         <MetricCard
           label="Alertas"
-          value={lowStock + outOfStock}
-          icon={AlertTriangle}
+          value={
+            lowStock +
+            outOfStock
+          }
+          icon={
+            AlertTriangle
+          }
         />
       </section>
 
@@ -271,7 +627,10 @@ export default function EstoquePage() {
             </h2>
 
             <p className="mt-1 text-sm text-zinc-500">
-              {filteredRows.length} registros
+              {
+                filteredRows.length
+              }{' '}
+              registros
               encontrados.
             </p>
           </div>
@@ -284,8 +643,13 @@ export default function EstoquePage() {
 
             <input
               value={search}
-              onChange={(event) =>
-                setSearch(event.target.value)
+              onChange={(
+                event
+              ) =>
+                setSearch(
+                  event.target
+                    .value
+                )
               }
               placeholder="Buscar produto, tamanho ou cor"
               className="w-full rounded-2xl border border-zinc-800 bg-zinc-950 py-3 pl-11 pr-4 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-zinc-600"
@@ -295,7 +659,9 @@ export default function EstoquePage() {
 
         {loading ? (
           <div className="space-y-3 p-5">
-            {Array.from({ length: 5 }).map(
+            {Array.from({
+              length: 5,
+            }).map(
               (_, index) => (
                 <div
                   key={index}
@@ -304,7 +670,8 @@ export default function EstoquePage() {
               )
             )}
           </div>
-        ) : filteredRows.length === 0 ? (
+        ) : filteredRows.length ===
+          0 ? (
           <div className="flex min-h-72 flex-col items-center justify-center p-8 text-center">
             <Boxes
               size={34}
@@ -312,78 +679,256 @@ export default function EstoquePage() {
             />
 
             <h3 className="mt-4 font-bold text-white">
-              Nenhum item encontrado
+              Nenhum item
+              encontrado
             </h3>
 
             <p className="mt-2 text-sm text-zinc-500">
-              Cadastre produtos e variações para
+              Cadastre produtos
+              e variações para
               preencher o estoque.
             </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[800px]">
+            <table className="w-full min-w-[1050px]">
               <thead>
                 <tr className="border-b border-zinc-800 text-left text-xs uppercase tracking-wider text-zinc-500">
                   <th className="px-6 py-4">
                     Produto
                   </th>
+
                   <th className="px-6 py-4">
                     Categoria
                   </th>
+
                   <th className="px-6 py-4">
                     Tamanho
                   </th>
+
                   <th className="px-6 py-4">
                     Cor
                   </th>
+
                   <th className="px-6 py-4">
                     Estoque
                   </th>
+
                   <th className="px-6 py-4">
                     Situação
+                  </th>
+
+                  <th className="px-6 py-4 text-right">
+                    Ação
                   </th>
                 </tr>
               </thead>
 
               <tbody>
-                {filteredRows.map((row) => (
-                  <tr
-                    key={row.id}
-                    className="border-b border-zinc-800/80 text-sm last:border-0 hover:bg-zinc-800/30"
-                  >
-                    <td className="px-6 py-4">
-                      <Link
-                        href={`/admin/produtos`}
-                        className="font-bold text-white hover:text-zinc-300"
+                {filteredRows.map(
+                  (row) => {
+                    const editingStock =
+                      row
+                        .variationId
+                        ? normalizeStock(
+                            draftStock[
+                              row
+                                .variationId
+                            ]
+                          )
+                        : 0;
+
+                    const saving =
+                      Boolean(
+                        savingIds[
+                          row
+                            .variationId
+                        ]
+                      );
+
+                    const changed =
+                      isStockChanged(
+                        row
+                      );
+
+                    return (
+                      <tr
+                        key={
+                          row.id
+                        }
+                        className="border-b border-zinc-800/80 text-sm last:border-0 hover:bg-zinc-800/30"
                       >
-                        {row.productName}
-                      </Link>
-                    </td>
+                        <td className="px-6 py-4">
+                          <Link
+                            href={`/admin/produtos/${row.productId}`}
+                            className="font-bold text-white hover:text-zinc-300"
+                          >
+                            {
+                              row.productName
+                            }
+                          </Link>
+                        </td>
 
-                    <td className="px-6 py-4 text-zinc-400">
-                      {row.category}
-                    </td>
+                        <td className="px-6 py-4 text-zinc-400">
+                          {
+                            row.category
+                          }
+                        </td>
 
-                    <td className="px-6 py-4 text-zinc-400">
-                      {row.size}
-                    </td>
+                        <td className="px-6 py-4 text-zinc-400">
+                          {
+                            row.size
+                          }
+                        </td>
 
-                    <td className="px-6 py-4 text-zinc-400">
-                      {row.color}
-                    </td>
+                        <td className="px-6 py-4 text-zinc-400">
+                          {
+                            row.color
+                          }
+                        </td>
 
-                    <td className="px-6 py-4 font-black text-white">
-                      {row.stock}
-                    </td>
+                        <td className="px-6 py-4">
+                          {row.variationId ? (
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  decrementStock(
+                                    row.variationId
+                                  )
+                                }
+                                disabled={
+                                  saving ||
+                                  editingStock <=
+                                    0
+                                }
+                                aria-label={`Diminuir estoque de ${row.productName}`}
+                                className="flex h-10 w-10 items-center justify-center rounded-xl border border-zinc-700 bg-zinc-900 text-white transition hover:border-zinc-500 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                <Minus
+                                  size={
+                                    16
+                                  }
+                                />
+                              </button>
 
-                    <td className="px-6 py-4">
-                      <StockBadge
-                        stock={row.stock}
-                      />
-                    </td>
-                  </tr>
-                ))}
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                value={
+                                  editingStock
+                                }
+                                onChange={(
+                                  event
+                                ) =>
+                                  changeDraftStock(
+                                    row.variationId,
+                                    event
+                                      .target
+                                      .value
+                                  )
+                                }
+                                disabled={
+                                  saving
+                                }
+                                className="h-10 w-20 rounded-xl border border-zinc-700 bg-zinc-950 px-3 text-center font-black text-white outline-none transition focus:border-white disabled:opacity-50"
+                              />
+
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  incrementStock(
+                                    row.variationId
+                                  )
+                                }
+                                disabled={
+                                  saving
+                                }
+                                aria-label={`Aumentar estoque de ${row.productName}`}
+                                className="flex h-10 w-10 items-center justify-center rounded-xl border border-zinc-700 bg-zinc-900 text-white transition hover:border-zinc-500 hover:bg-zinc-800 disabled:cursor-not-allowed disabled:opacity-40"
+                              >
+                                <Plus
+                                  size={
+                                    16
+                                  }
+                                />
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-zinc-500">
+                              Sem
+                              variação
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="px-6 py-4">
+                          <StockBadge
+                            stock={
+                              row
+                                .variationId
+                                ? editingStock
+                                : row.stock
+                            }
+                          />
+                        </td>
+
+                        <td className="px-6 py-4 text-right">
+                          {row.variationId ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                saveStock(
+                                  row
+                                )
+                              }
+                              disabled={
+                                saving ||
+                                !changed
+                              }
+                              className={`inline-flex min-w-28 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition ${
+                                changed
+                                  ? 'bg-white text-black hover:bg-zinc-200'
+                                  : 'border border-zinc-800 bg-zinc-900 text-zinc-500'
+                              } disabled:cursor-not-allowed disabled:opacity-60`}
+                            >
+                              {saving ? (
+                                <>
+                                  <LoaderCircle
+                                    size={
+                                      16
+                                    }
+                                    className="animate-spin"
+                                  />
+                                  Salvando
+                                </>
+                              ) : changed ? (
+                                <>
+                                  <Save
+                                    size={
+                                      16
+                                    }
+                                  />
+                                  Salvar
+                                </>
+                              ) : (
+                                <>
+                                  <Check
+                                    size={
+                                      16
+                                    }
+                                  />
+                                  Salvo
+                                </>
+                              )}
+                            </button>
+                          ) : null}
+                        </td>
+                      </tr>
+                    );
+                  }
+                )}
               </tbody>
             </table>
           </div>
@@ -419,7 +964,9 @@ function MetricCard({
   );
 }
 
-function StockBadge({ stock }) {
+function StockBadge({
+  stock,
+}) {
   if (stock === 0) {
     return (
       <span className="rounded-full border border-red-500/20 bg-red-500/10 px-3 py-1 text-xs font-bold text-red-300">

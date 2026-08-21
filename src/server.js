@@ -13,79 +13,171 @@ const paymentRoutes = require("./routes/paymentRoutes");
 const webhookRoutes = require("./routes/webhookRoutes");
 const favoriteRoutes = require("./routes/favoriteRoutes");
 const userRoutes = require("./routes/userRoutes");
+const shippingRoutes = require("./routes/shippingRoutes");
 
 const app = express();
 
-const PORT = process.env.PORT || 3001;
+const PORT =
+  process.env.PORT || 3001;
+
+// ==========================================
+// PROXY / INFRAESTRUTURA
+// ==========================================
+//
+// Em produção normalmente existe um proxy
+// reverso entre o usuário e o Express.
+//
+// Ajuste o número se sua infraestrutura
+// possuir mais de um proxy.
+// ==========================================
+
+if (
+  process.env.NODE_ENV ===
+  "production"
+) {
+  app.set(
+    "trust proxy",
+    1
+  );
+}
 
 // ==========================================
 // SEGURANÇA E OTIMIZAÇÃO
 // ==========================================
 
-app.disable("x-powered-by");
+app.disable(
+  "x-powered-by"
+);
 
 app.use(
   helmet({
     crossOriginResourcePolicy: {
-      policy: "cross-origin",
+      policy:
+        "cross-origin",
     },
   })
 );
 
-app.use(compression());
+app.use(
+  compression()
+);
 
-// Limite geral da API:
-// até 300 requisições por IP a cada 15 minutos.
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 300,
-  standardHeaders: "draft-7",
-  legacyHeaders: false,
-  message: {
-    message:
-      "Muitas requisições realizadas. Tente novamente em alguns minutos.",
-  },
-});
+// ==========================================
+// RATE LIMIT
+// ==========================================
 
-// Limite mais rígido para autenticação:
-// até 20 tentativas por IP a cada 15 minutos.
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  limit: 20,
-  standardHeaders: "draft-7",
-  legacyHeaders: false,
-  skipSuccessfulRequests: true,
-  message: {
-    message:
-      "Muitas tentativas de autenticação. Aguarde alguns minutos e tente novamente.",
-  },
-});
+// API geral:
+// 300 requisições por IP
+// a cada 15 minutos.
+
+const apiLimiter =
+  rateLimit({
+    windowMs:
+      15 * 60 * 1000,
+
+    limit:
+      300,
+
+    standardHeaders:
+      "draft-7",
+
+    legacyHeaders:
+      false,
+
+    message: {
+      message:
+        "Muitas requisições realizadas. Tente novamente em alguns minutos.",
+    },
+  });
+
+// Autenticação:
+// 20 tentativas malsucedidas
+// por IP em 15 minutos.
+
+const authLimiter =
+  rateLimit({
+    windowMs:
+      15 * 60 * 1000,
+
+    limit:
+      20,
+
+    standardHeaders:
+      "draft-7",
+
+    legacyHeaders:
+      false,
+
+    skipSuccessfulRequests:
+      true,
+
+    message: {
+      message:
+        "Muitas tentativas de autenticação. Aguarde alguns minutos e tente novamente.",
+    },
+  });
 
 // ==========================================
 // CORS
 // ==========================================
 
+function normalizeOrigin(
+  value
+) {
+  return String(
+    value || ""
+  )
+    .trim()
+    .replace(/\/+$/, "");
+}
+
 const allowedOrigins = [
-  process.env.FRONTEND_URL,
+  normalizeOrigin(
+    process.env
+      .FRONTEND_URL
+  ),
+
   "http://localhost:3000",
   "http://localhost:5173",
 ].filter(Boolean);
 
 app.use(
   cors({
-    origin: (origin, callback) => {
-      // Permite Postman, Render, Mercado Pago
-      // e outras requisições sem Origin.
+    origin: (
+      origin,
+      callback
+    ) => {
+      // Requisições server-to-server,
+      // Postman, Mercado Pago etc.
+      // normalmente não possuem Origin.
+
       if (!origin) {
-        return callback(null, true);
+        return callback(
+          null,
+          true
+        );
       }
 
-      if (allowedOrigins.includes(origin)) {
-        return callback(null, true);
+      const normalizedOrigin =
+        normalizeOrigin(
+          origin
+        );
+
+      if (
+        allowedOrigins.includes(
+          normalizedOrigin
+        )
+      ) {
+        return callback(
+          null,
+          true
+        );
       }
 
       return callback(
-        new Error("Origem não permitida pelo CORS.")
+        new Error(
+          "Origem não permitida pelo CORS."
+        )
       );
     },
 
@@ -105,7 +197,8 @@ app.use(
       "X-Request-Id",
     ],
 
-    optionsSuccessStatus: 204,
+    optionsSuccessStatus:
+      204,
   })
 );
 
@@ -115,26 +208,49 @@ app.use(
 
 app.use(
   express.json({
-    limit: "1mb",
+    limit:
+      "1mb",
   })
 );
 
 app.use(
   express.urlencoded({
-    extended: true,
-    limit: "1mb",
+    extended:
+      true,
+
+    limit:
+      "1mb",
   })
 );
 
-// Limite geral aplicado às rotas da API.
-app.use("/api", apiLimiter);
+// ==========================================
+// WEBHOOK
+// ==========================================
+//
+// Mantido fora do limiter geral.
+//
+// Mercado Pago pode reenviar notificações
+// automaticamente.
+// ==========================================
+
+app.use(
+  "/api/webhook",
+  webhookRoutes
+);
 
 // ==========================================
-// ROTAS DA API
+// RATE LIMIT GERAL
 // ==========================================
 
-// Rate limit mais restrito para login,
-// cadastro e recuperação de senha.
+app.use(
+  "/api",
+  apiLimiter
+);
+
+// ==========================================
+// ROTAS
+// ==========================================
+
 app.use(
   "/api/auth",
   authLimiter,
@@ -157,11 +273,6 @@ app.use(
 );
 
 app.use(
-  "/api/webhook",
-  webhookRoutes
-);
-
-app.use(
   "/api/favorites",
   favoriteRoutes
 );
@@ -171,94 +282,207 @@ app.use(
   userRoutes
 );
 
+app.use(
+  "/api/shipping",
+  shippingRoutes
+);
+
 // ==========================================
-// ROTA DE TESTE
+// HEALTH CHECK
 // ==========================================
 
-app.get("/", (req, res) => {
-  return res.status(200).json({
-    message:
-      "API da Trinity Corp está rodando com sucesso!",
-    environment:
-      process.env.NODE_ENV || "development",
-  });
-});
+app.get(
+  "/",
+  (req, res) => {
+    return res
+      .status(200)
+      .json({
+        message:
+          "API da Trinity Corp está rodando com sucesso!",
+
+        environment:
+          process.env
+            .NODE_ENV ||
+          "development",
+      });
+  }
+);
 
 // ==========================================
 // ROTA NÃO ENCONTRADA
 // ==========================================
 
-app.use((req, res) => {
-  return res.status(404).json({
-    message: "Rota não encontrada.",
-  });
-});
+app.use(
+  (req, res) => {
+    return res
+      .status(404)
+      .json({
+        message:
+          "Rota não encontrada.",
+      });
+  }
+);
 
 // ==========================================
 // TRATAMENTO GLOBAL DE ERROS
 // ==========================================
 
-app.use((error, req, res, next) => {
-  console.error("Erro interno da API:", error);
+app.use(
+  (
+    error,
+    req,
+    res,
+    next
+  ) => {
+    console.error(
+      "Erro interno da API:",
+      error
+    );
 
-  if (
-    error.message ===
-    "Origem não permitida pelo CORS."
-  ) {
-    return res.status(403).json({
-      message: error.message,
-    });
+    if (
+      error.message ===
+      "Origem não permitida pelo CORS."
+    ) {
+      return res
+        .status(403)
+        .json({
+          message:
+            error.message,
+        });
+    }
+
+    if (
+      error.type ===
+      "entity.too.large"
+    ) {
+      return res
+        .status(413)
+        .json({
+          message:
+            "O conteúdo enviado ultrapassa o limite permitido.",
+        });
+    }
+
+    if (
+      error instanceof
+      SyntaxError &&
+      error.status === 400 &&
+      "body" in error
+    ) {
+      return res
+        .status(400)
+        .json({
+          message:
+            "JSON inválido.",
+        });
+    }
+
+    return res
+      .status(500)
+      .json({
+        message:
+          "Erro interno do servidor.",
+      });
   }
-
-  if (error.type === "entity.too.large") {
-    return res.status(413).json({
-      message:
-        "O conteúdo enviado ultrapassa o limite permitido.",
-    });
-  }
-
-  return res.status(500).json({
-    message: "Erro interno do servidor.",
-  });
-});
+);
 
 // ==========================================
 // START SERVER
 // ==========================================
 
-const server = app.listen(PORT, () => {
-  console.log(
-    `Servidor Trinity rodando na porta ${PORT}`
+const server =
+  app.listen(
+    PORT,
+    () => {
+      console.log(
+        `Servidor Trinity rodando na porta ${PORT}`
+      );
+    }
   );
-});
 
 // ==========================================
 // ENCERRAMENTO SEGURO
 // ==========================================
 
-function shutdown(signal) {
+let shuttingDown =
+  false;
+
+function shutdown(
+  signal
+) {
+  if (
+    shuttingDown
+  ) {
+    return;
+  }
+
+  shuttingDown =
+    true;
+
   console.log(
     `${signal} recebido. Encerrando servidor...`
   );
 
-  server.close(() => {
-    console.log("Servidor encerrado com sucesso.");
-    process.exit(0);
-  });
+  server.close(
+    async () => {
+      try {
+        await prismaDisconnect();
+      } finally {
+        console.log(
+          "Servidor encerrado com sucesso."
+        );
 
-  setTimeout(() => {
-    console.error(
-      "Encerramento forçado após tempo limite."
-    );
+        process.exit(
+          0
+        );
+      }
+    }
+  );
 
-    process.exit(1);
-  }, 10000).unref();
+  setTimeout(
+    () => {
+      console.error(
+        "Encerramento forçado após tempo limite."
+      );
+
+      process.exit(
+        1
+      );
+    },
+    10000
+  ).unref();
 }
 
-process.on("SIGTERM", () => {
-  shutdown("SIGTERM");
-});
+async function prismaDisconnect() {
+  try {
+    const prisma =
+      require(
+        "./config/prisma"
+      );
 
-process.on("SIGINT", () => {
-  shutdown("SIGINT");
-});
+    await prisma.$disconnect();
+  } catch (error) {
+    console.error(
+      "Erro ao desconectar Prisma:",
+      error
+    );
+  }
+}
+
+process.on(
+  "SIGTERM",
+  () => {
+    shutdown(
+      "SIGTERM"
+    );
+  }
+);
+
+process.on(
+  "SIGINT",
+  () => {
+    shutdown(
+      "SIGINT"
+    );
+  }
+);
