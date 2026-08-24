@@ -15,7 +15,9 @@ const ORDER_STATUS = {
 };
 
 const VALID_ORDER_STATUSES =
-  Object.values(ORDER_STATUS);
+  Object.values(
+    ORDER_STATUS
+  );
 
 const STOCK_REDUCING_STATUSES = [
   ORDER_STATUS.PAID,
@@ -77,31 +79,41 @@ class OrderError extends Error {
     super(message);
 
     this.name = "OrderError";
-    this.statusCode = statusCode;
+    this.statusCode =
+      statusCode;
     this.code = code;
-    this.details = details;
+    this.details =
+      details;
   }
 }
 
 // ==========================================
-// RESPOSTA DE ERRO INTERNO
+// ERRO INTERNO
 // ==========================================
 
 function sendServerError(
   res,
-  message = "Erro interno do servidor."
+  message =
+    "Erro interno do servidor."
 ) {
-  return res.status(500).json({
-    message,
-  });
+  return res
+    .status(500)
+    .json({
+      message,
+    });
 }
 
 // ==========================================
 // HELPERS GERAIS
 // ==========================================
 
-function normalizeOrderStatus(status) {
-  if (typeof status !== "string") {
+function normalizeOrderStatus(
+  status
+) {
+  if (
+    typeof status !==
+    "string"
+  ) {
     return "";
   }
 
@@ -110,7 +122,9 @@ function normalizeOrderStatus(status) {
     .toUpperCase();
 }
 
-function normalizeText(value) {
+function normalizeText(
+  value
+) {
   if (
     value === null ||
     value === undefined
@@ -118,12 +132,39 @@ function normalizeText(value) {
     return "";
   }
 
-  return String(value).trim();
+  return String(
+    value
+  ).trim();
 }
 
-function normalizeZipCode(value) {
-  return normalizeText(value)
-    .replace(/\D/g, "");
+function normalizeZipCode(
+  value
+) {
+  return normalizeText(
+    value
+  ).replace(
+    /\D/g,
+    ""
+  );
+}
+
+function normalizeMoney(
+  value
+) {
+  const number =
+    Number(value);
+
+  if (
+    !Number.isFinite(
+      number
+    )
+  ) {
+    return 0;
+  }
+
+  return Number(
+    number.toFixed(2)
+  );
 }
 
 function normalizePositiveNumber(
@@ -134,7 +175,9 @@ function normalizePositiveNumber(
     Number(value);
 
   if (
-    !Number.isFinite(number) ||
+    !Number.isFinite(
+      number
+    ) ||
     number <= 0
   ) {
     throw new OrderError(
@@ -148,40 +191,26 @@ function normalizePositiveNumber(
 }
 
 // ==========================================
-// MELHOR ENVIO
+// MELHOR ENVIO - AMBIENTE
 // ==========================================
 
-function getMelhorEnvioBaseUrl() {
-  const environment =
-    normalizeText(
-      process.env
-        .MELHOR_ENVIO_ENVIRONMENT ||
-        "sandbox"
-    ).toLowerCase();
+function getMelhorEnvioEnvironment() {
+  return normalizeText(
+    process.env
+      .MELHOR_ENVIO_ENVIRONMENT ||
+      "sandbox"
+  ).toLowerCase();
+}
 
+function getMelhorEnvioBaseUrl() {
   if (
-    environment === "production"
+    getMelhorEnvioEnvironment() ===
+    "production"
   ) {
     return "https://melhorenvio.com.br";
   }
 
   return "https://sandbox.melhorenvio.com.br";
-}
-
-function getMelhorEnvioToken() {
-  return normalizeText(
-    process.env.MELHOR_ENVIO_TOKEN
-  );
-}
-
-function getMelhorEnvioUserAgent() {
-  return (
-    normalizeText(
-      process.env
-        .MELHOR_ENVIO_USER_AGENT
-    ) ||
-    "Trinity Corp"
-  );
 }
 
 function getMelhorEnvioOriginZipCode() {
@@ -191,16 +220,438 @@ function getMelhorEnvioOriginZipCode() {
   );
 }
 
-function isMelhorEnvioConfigured() {
-  const token =
-    getMelhorEnvioToken();
+function getMelhorEnvioUserAgent() {
+  return (
+    normalizeText(
+      process.env
+        .MELHOR_ENVIO_USER_AGENT
+    ) ||
+    "Trinity Wear (noreplytrinity@gmail.com)"
+  );
+}
 
+// ==========================================
+// MELHOR ENVIO - OAUTH
+// ==========================================
+
+function getMelhorEnvioOAuthConfig() {
+  return {
+    clientId:
+      normalizeText(
+        process.env
+          .MELHOR_ENVIO_CLIENT_ID
+      ),
+
+    clientSecret:
+      normalizeText(
+        process.env
+          .MELHOR_ENVIO_CLIENT_SECRET
+      ),
+
+    redirectUri:
+      normalizeText(
+        process.env
+          .MELHOR_ENVIO_REDIRECT_URI
+      ),
+  };
+}
+
+function validateMelhorEnvioOAuthConfig() {
+  const config =
+    getMelhorEnvioOAuthConfig();
+
+  if (
+    !config.clientId
+  ) {
+    throw new OrderError(
+      "MELHOR_ENVIO_CLIENT_ID não foi configurado.",
+      503,
+      "MELHOR_ENVIO_CLIENT_ID_MISSING"
+    );
+  }
+
+  if (
+    !config.clientSecret
+  ) {
+    throw new OrderError(
+      "MELHOR_ENVIO_CLIENT_SECRET não foi configurado.",
+      503,
+      "MELHOR_ENVIO_CLIENT_SECRET_MISSING"
+    );
+  }
+
+  return config;
+}
+
+// ==========================================
+// MELHOR ENVIO - CREDENCIAL SALVA
+// ==========================================
+
+async function getStoredMelhorEnvioCredential() {
+  return prisma
+    .melhorEnvioCredential
+    .findUnique({
+      where: {
+        id: "main",
+      },
+    });
+}
+
+function calculateAccessTokenExpiration(
+  expiresIn
+) {
+  const seconds =
+    Number(
+      expiresIn
+    );
+
+  if (
+    !Number.isFinite(
+      seconds
+    ) ||
+    seconds <= 0
+  ) {
+    return null;
+  }
+
+  return new Date(
+    Date.now() +
+      seconds * 1000
+  );
+}
+
+function calculateRefreshTokenExpiration() {
+  return new Date(
+    Date.now() +
+      45 *
+        24 *
+        60 *
+        60 *
+        1000
+  );
+}
+
+function isCredentialExpired(
+  expiresAt,
+  safetySeconds = 120
+) {
+  if (!expiresAt) {
+    return true;
+  }
+
+  const timestamp =
+    new Date(
+      expiresAt
+    ).getTime();
+
+  if (
+    Number.isNaN(
+      timestamp
+    )
+  ) {
+    return true;
+  }
+
+  return (
+    timestamp <=
+    Date.now() +
+      safetySeconds *
+        1000
+  );
+}
+
+async function saveMelhorEnvioCredential({
+  accessToken,
+  refreshToken,
+  expiresIn,
+}) {
+  const normalizedAccessToken =
+    normalizeText(
+      accessToken
+    );
+
+  const normalizedRefreshToken =
+    normalizeText(
+      refreshToken
+    );
+
+  if (
+    !normalizedAccessToken
+  ) {
+    throw new OrderError(
+      "Access token do Melhor Envio inválido.",
+      500,
+      "INVALID_ACCESS_TOKEN"
+    );
+  }
+
+  const current =
+    await getStoredMelhorEnvioCredential();
+
+  const finalRefreshToken =
+    normalizedRefreshToken ||
+    current
+      ?.refreshToken ||
+    null;
+
+  const accessTokenExpiresAt =
+    calculateAccessTokenExpiration(
+      expiresIn
+    );
+
+  const refreshTokenExpiresAt =
+    finalRefreshToken
+      ? calculateRefreshTokenExpiration()
+      : null;
+
+  return prisma
+    .melhorEnvioCredential
+    .upsert({
+      where: {
+        id: "main",
+      },
+
+      create: {
+        id: "main",
+
+        accessToken:
+          normalizedAccessToken,
+
+        refreshToken:
+          finalRefreshToken,
+
+        accessTokenExpiresAt,
+
+        refreshTokenExpiresAt,
+      },
+
+      update: {
+        accessToken:
+          normalizedAccessToken,
+
+        refreshToken:
+          finalRefreshToken,
+
+        accessTokenExpiresAt,
+
+        refreshTokenExpiresAt,
+      },
+    });
+}
+
+// ==========================================
+// RENOVAR TOKEN DO MELHOR ENVIO
+// ==========================================
+
+async function refreshMelhorEnvioAccessToken(
+  refreshToken
+) {
+  const {
+    clientId,
+    clientSecret,
+  } =
+    validateMelhorEnvioOAuthConfig();
+
+  const normalizedRefreshToken =
+    normalizeText(
+      refreshToken
+    );
+
+  if (
+    !normalizedRefreshToken
+  ) {
+    throw new OrderError(
+      "Refresh token do Melhor Envio não encontrado.",
+      503,
+      "MELHOR_ENVIO_REAUTH_REQUIRED"
+    );
+  }
+
+  const body =
+    new URLSearchParams();
+
+  body.set(
+    "grant_type",
+    "refresh_token"
+  );
+
+  body.set(
+    "refresh_token",
+    normalizedRefreshToken
+  );
+
+  body.set(
+    "client_id",
+    clientId
+  );
+
+  body.set(
+    "client_secret",
+    clientSecret
+  );
+
+  const response =
+    await fetch(
+      `${getMelhorEnvioBaseUrl()}/oauth/token`,
+      {
+        method: "POST",
+
+        headers: {
+          Accept:
+            "application/json",
+
+          "Content-Type":
+            "application/x-www-form-urlencoded",
+
+          "User-Agent":
+            getMelhorEnvioUserAgent(),
+        },
+
+        body:
+          body.toString(),
+      }
+    );
+
+  const data =
+    await response
+      .json()
+      .catch(
+        () => null
+      );
+
+  if (
+    !response.ok
+  ) {
+    console.error(
+      "Erro ao renovar token do Melhor Envio:",
+      data
+    );
+
+    throw new OrderError(
+      data?.message ||
+        "Não foi possível renovar a autorização do Melhor Envio.",
+      response.status ||
+        503,
+      "MELHOR_ENVIO_REFRESH_ERROR",
+      data
+    );
+  }
+
+  if (
+    !data?.access_token
+  ) {
+    throw new OrderError(
+      "O Melhor Envio não retornou um novo access token.",
+      502,
+      "MELHOR_ENVIO_ACCESS_TOKEN_MISSING"
+    );
+  }
+
+  const tokenData = {
+    accessToken:
+      String(
+        data.access_token
+      ),
+
+    refreshToken:
+      data.refresh_token
+        ? String(
+            data.refresh_token
+          )
+        : normalizedRefreshToken,
+
+    expiresIn:
+      Number(
+        data.expires_in ||
+          0
+      ),
+  };
+
+  await saveMelhorEnvioCredential(
+    tokenData
+  );
+
+  return tokenData
+    .accessToken;
+}
+
+// ==========================================
+// OBTER ACCESS TOKEN ATIVO
+// ==========================================
+
+async function getActiveMelhorEnvioAccessToken() {
+  const credential =
+    await getStoredMelhorEnvioCredential();
+
+  if (
+    !credential
+  ) {
+    return null;
+  }
+
+  if (
+    credential.accessToken &&
+    !isCredentialExpired(
+      credential
+        .accessTokenExpiresAt
+    )
+  ) {
+    return credential
+      .accessToken;
+  }
+
+  if (
+    !credential.refreshToken
+  ) {
+    throw new OrderError(
+      "A autorização do Melhor Envio expirou. Autorize novamente a integração.",
+      503,
+      "MELHOR_ENVIO_REAUTH_REQUIRED"
+    );
+  }
+
+  if (
+    credential
+      .refreshTokenExpiresAt &&
+    isCredentialExpired(
+      credential
+        .refreshTokenExpiresAt,
+      0
+    )
+  ) {
+    throw new OrderError(
+      "O refresh token do Melhor Envio expirou. Autorize novamente a integração.",
+      503,
+      "MELHOR_ENVIO_REAUTH_REQUIRED"
+    );
+  }
+
+  return refreshMelhorEnvioAccessToken(
+    credential.refreshToken
+  );
+}
+
+// ==========================================
+// VERIFICAR DISPONIBILIDADE DA INTEGRAÇÃO
+// ==========================================
+
+async function isMelhorEnvioConfigured() {
   const originZipCode =
     getMelhorEnvioOriginZipCode();
 
-  return (
-    Boolean(token) &&
-    originZipCode.length === 8
+  if (
+    originZipCode.length !==
+    8
+  ) {
+    return false;
+  }
+
+  const credential =
+    await getStoredMelhorEnvioCredential();
+
+  return Boolean(
+    credential
+      ?.accessToken
   );
 }
 
@@ -212,14 +663,16 @@ function getMissingShippingFields(
   user
 ) {
   return REQUIRED_SHIPPING_FIELDS
-    .filter(({ field }) => {
-      const value =
-        user?.[field];
+    .filter(
+      ({ field }) => {
+        const value =
+          user?.[field];
 
-      return !normalizeText(
-        value
-      );
-    })
+        return !normalizeText(
+          value
+        );
+      }
+    )
     .map(
       ({
         field,
@@ -240,7 +693,8 @@ function validateShippingAddress(
     );
 
   if (
-    missingFields.length > 0
+    missingFields.length >
+    0
   ) {
     throw new OrderError(
       "Complete seu endereço de entrega antes de finalizar a compra.",
@@ -275,7 +729,8 @@ function validateShippingAddress(
       400,
       "INVALID_SHIPPING_ZIP_CODE",
       {
-        field: "zipCode",
+        field:
+          "zipCode",
       }
     );
   }
@@ -293,7 +748,8 @@ function validateShippingAddress(
       400,
       "INVALID_SHIPPING_STATE",
       {
-        field: "state",
+        field:
+          "state",
       }
     );
   }
@@ -341,7 +797,6 @@ function validateShippingAddress(
       state,
   };
 }
-
 // ==========================================
 // NORMALIZAR ITENS RECEBIDOS
 // ==========================================
@@ -404,7 +859,9 @@ function normalizeRequestItems(
       `${productId}:${variationId}`;
 
     const existingItem =
-      groupedItems.get(key);
+      groupedItems.get(
+        key
+      );
 
     if (existingItem) {
       existingItem.quantity +=
@@ -429,7 +886,7 @@ function normalizeRequestItems(
 }
 
 // ==========================================
-// NORMALIZAR FRETE ESCOLHIDO NO FRONTEND
+// NORMALIZAR FRETE ESCOLHIDO
 // ==========================================
 
 function normalizeRequestedShipping(
@@ -437,7 +894,8 @@ function normalizeRequestedShipping(
 ) {
   if (
     !shipping ||
-    typeof shipping !== "object"
+    typeof shipping !==
+      "object"
   ) {
     return null;
   }
@@ -465,8 +923,6 @@ function normalizeRequestedShipping(
         shipping.company
       ) || null,
 
-    // Este preço NÃO será considerado
-    // confiável pelo backend.
     requestedPrice:
       Number(
         shipping.price
@@ -486,7 +942,7 @@ function normalizeRequestedShipping(
 }
 
 // ==========================================
-// INCLUDES PADRÃO DOS PEDIDOS
+// INCLUDE PADRÃO DOS PEDIDOS
 // ==========================================
 
 function getOrderInclude({
@@ -523,7 +979,8 @@ function getOrderInclude({
           },
         },
 
-        variation: true,
+        variation:
+          true,
       },
     },
   };
@@ -618,7 +1075,9 @@ function buildShippingProducts(
 function normalizeMelhorEnvioOptions(
   data
 ) {
-  if (!Array.isArray(data)) {
+  if (
+    !Array.isArray(data)
+  ) {
     return [];
   }
 
@@ -627,7 +1086,8 @@ function normalizeMelhorEnvioOptions(
       (option) =>
         option &&
         !option.error &&
-        option.id !== undefined
+        option.id !==
+          undefined
     )
     .map(
       (option) => {
@@ -663,19 +1123,24 @@ function normalizeMelhorEnvioOptions(
             Number.isFinite(
               price
             )
-              ? price
+              ? normalizeMoney(
+                  price
+                )
               : null,
 
           deadline:
             Number.isFinite(
               deadline
             )
-              ? deadline
+              ? Number(
+                  deadline
+                )
               : null,
         };
       }
     );
 }
+
 // ==========================================
 // VALIDAR FRETE NO MELHOR ENVIO
 // ==========================================
@@ -685,7 +1150,9 @@ async function validateShippingWithMelhorEnvio({
   shippingZipCode,
   shippingProducts,
 }) {
-  if (!requestedShipping) {
+  if (
+    !requestedShipping
+  ) {
     throw new OrderError(
       "Selecione uma opção de frete antes de finalizar a compra.",
       400,
@@ -694,19 +1161,26 @@ async function validateShippingWithMelhorEnvio({
   }
 
   const token =
-    getMelhorEnvioToken();
+    await getActiveMelhorEnvioAccessToken();
 
   const originZipCode =
     getMelhorEnvioOriginZipCode();
 
+  if (!token) {
+    throw new OrderError(
+      "A integração com o Melhor Envio ainda não está autorizada.",
+      503,
+      "MELHOR_ENVIO_NOT_AUTHORIZED"
+    );
+  }
+
   if (
-    !token ||
     originZipCode.length !== 8
   ) {
     throw new OrderError(
-      "A integração com o Melhor Envio ainda não está configurada.",
+      "O CEP de origem do Melhor Envio não está configurado corretamente.",
       503,
-      "MELHOR_ENVIO_NOT_CONFIGURED"
+      "MELHOR_ENVIO_ORIGIN_ZIP_CODE_MISSING"
     );
   }
 
@@ -751,9 +1225,13 @@ async function validateShippingWithMelhorEnvio({
   const data =
     await response
       .json()
-      .catch(() => null);
+      .catch(
+        () => null
+      );
 
-  if (!response.ok) {
+  if (
+    !response.ok
+  ) {
     console.error(
       "Erro ao validar frete no Melhor Envio:",
       data
@@ -785,7 +1263,9 @@ async function validateShippingWithMelhorEnvio({
         )
     );
 
-  if (!selectedOption) {
+  if (
+    !selectedOption
+  ) {
     throw new OrderError(
       "A opção de frete selecionada não está mais disponível. Calcule o frete novamente.",
       409,
@@ -808,6 +1288,45 @@ async function validateShippingWithMelhorEnvio({
     );
   }
 
+  // ========================================
+  // PROTEÇÃO CONTRA PREÇO ALTERADO NO FRONT
+  // ========================================
+
+  if (
+    Number.isFinite(
+      requestedShipping
+        .requestedPrice
+    )
+  ) {
+    const requestedPrice =
+      normalizeMoney(
+        requestedShipping
+          .requestedPrice
+      );
+
+    const officialPrice =
+      normalizeMoney(
+        selectedOption.price
+      );
+
+    if (
+      Math.abs(
+        requestedPrice -
+          officialPrice
+      ) >= 0.01
+    ) {
+      console.warn(
+        "Preço de frete do frontend divergente do Melhor Envio:",
+        {
+          requestedPrice,
+          officialPrice,
+          serviceId:
+            selectedOption.id,
+        }
+      );
+    }
+  }
+
   return {
     shippingServiceId:
       selectedOption.id,
@@ -819,10 +1338,8 @@ async function validateShippingWithMelhorEnvio({
       selectedOption.company,
 
     shippingPrice:
-      Number(
-        selectedOption.price.toFixed(
-          2
-        )
+      normalizeMoney(
+        selectedOption.price
       ),
 
     shippingDeadline:
@@ -840,25 +1357,29 @@ async function prepareOrderShipping({
   normalizedItems,
   variationMap,
 }) {
+  const originZipCode =
+    getMelhorEnvioOriginZipCode();
+
   if (
-    !isMelhorEnvioConfigured()
+    originZipCode.length !==
+      8
   ) {
-    return {
-      shippingServiceId:
-        null,
+    throw new OrderError(
+      "O CEP de origem do Melhor Envio não está configurado.",
+      503,
+      "MELHOR_ENVIO_ORIGIN_ZIP_CODE_MISSING"
+    );
+  }
 
-      shippingService:
-        null,
+  const credential =
+    await getStoredMelhorEnvioCredential();
 
-      shippingCompany:
-        null,
-
-      shippingPrice:
-        0,
-
-      shippingDeadline:
-        null,
-    };
+  if (!credential) {
+    throw new OrderError(
+      "A integração com o Melhor Envio ainda não foi autorizada.",
+      503,
+      "MELHOR_ENVIO_NOT_AUTHORIZED"
+    );
   }
 
   const shippingProducts =
@@ -867,17 +1388,15 @@ async function prepareOrderShipping({
       variationMap
     );
 
-  return validateShippingWithMelhorEnvio(
-    {
-      requestedShipping,
+  return validateShippingWithMelhorEnvio({
+    requestedShipping,
 
-      shippingZipCode:
-        shippingAddress
-          .shippingZipCode,
+    shippingZipCode:
+      shippingAddress
+        .shippingZipCode,
 
-      shippingProducts,
-    }
-  );
+    shippingProducts,
+  });
 }
 
 // ==========================================
@@ -972,13 +1491,10 @@ function calculateOrderSubtotal(
       0
     );
 
-  return Number(
-    calculatedSubtotal.toFixed(
-      2
-    )
+  return normalizeMoney(
+    calculatedSubtotal
   );
 }
-
 // ==========================================
 // BAIXAR ESTOQUE
 // ==========================================
@@ -1106,12 +1622,20 @@ function shouldStatusRestoreStock({
     !previousWasFinal
   );
 }
+
 // ==========================================
 // CRIAR PEDIDO
 // ==========================================
 
-const createOrder = async (req, res) => {
+const createOrder = async (
+  req,
+  res
+) => {
   try {
+    // ======================================
+    // AUTENTICAÇÃO
+    // ======================================
+
     if (!req.user?.id) {
       return res
         .status(401)
@@ -1126,26 +1650,28 @@ const createOrder = async (req, res) => {
     // ======================================
 
     const user =
-      await prisma.user.findUnique({
-        where: {
-          id: req.user.id,
-        },
+      await prisma.user
+        .findUnique({
+          where: {
+            id:
+              req.user.id,
+          },
 
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          phone: true,
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            phone: true,
 
-          zipCode: true,
-          street: true,
-          number: true,
-          complement: true,
-          neighborhood: true,
-          city: true,
-          state: true,
-        },
-      });
+            zipCode: true,
+            street: true,
+            number: true,
+            complement: true,
+            neighborhood: true,
+            city: true,
+            state: true,
+          },
+        });
 
     if (!user) {
       throw new OrderError(
@@ -1155,13 +1681,17 @@ const createOrder = async (req, res) => {
       );
     }
 
+    // ======================================
+    // VALIDAR ENDEREÇO
+    // ======================================
+
     const shippingAddress =
       validateShippingAddress(
         user
       );
 
     // ======================================
-    // VALIDAR ITENS
+    // NORMALIZAR ITENS DO PEDIDO
     // ======================================
 
     const requestItems =
@@ -1175,18 +1705,25 @@ const createOrder = async (req, res) => {
           item.variationId
       );
 
-    const variations =
-      await prisma.variation.findMany({
-        where: {
-          id: {
-            in: variationIds,
-          },
-        },
+    // ======================================
+    // BUSCAR VARIAÇÕES E PRODUTOS
+    // ======================================
 
-        include: {
-          product: true,
-        },
-      });
+    const variations =
+      await prisma.variation
+        .findMany({
+          where: {
+            id: {
+              in:
+                variationIds,
+            },
+          },
+
+          include: {
+            product:
+              true,
+          },
+        });
 
     const variationMap =
       new Map(
@@ -1197,6 +1734,10 @@ const createOrder = async (req, res) => {
           ]
         )
       );
+
+    // ======================================
+    // VALIDAR ESTOQUE E PREÇOS
+    // ======================================
 
     const normalizedItems =
       buildNormalizedOrderItems({
@@ -1213,8 +1754,18 @@ const createOrder = async (req, res) => {
         normalizedItems
       );
 
+    if (
+      subtotal <= 0
+    ) {
+      throw new OrderError(
+        "O subtotal do pedido é inválido.",
+        400,
+        "INVALID_ORDER_SUBTOTAL"
+      );
+    }
+
     // ======================================
-    // FRETE SOLICITADO
+    // FRETE ESCOLHIDO PELO CLIENTE
     // ======================================
 
     const requestedShipping =
@@ -1222,8 +1773,18 @@ const createOrder = async (req, res) => {
         req.body?.shipping
       );
 
+    if (
+      !requestedShipping
+    ) {
+      throw new OrderError(
+        "Selecione uma opção de frete antes de finalizar a compra.",
+        400,
+        "SHIPPING_REQUIRED"
+      );
+    }
+
     // ======================================
-    // PREPARAR / VALIDAR FRETE
+    // RECOTAR / VALIDAR NO MELHOR ENVIO
     // ======================================
 
     const preparedShipping =
@@ -1234,124 +1795,184 @@ const createOrder = async (req, res) => {
         variationMap,
       });
 
+    // ======================================
+    // PREÇO OFICIAL DO FRETE
+    // ======================================
+
     const shippingPrice =
-      Number(
+      normalizeMoney(
         preparedShipping
-          .shippingPrice || 0
+          .shippingPrice
       );
 
-    const total =
-      Number(
-        (
-          subtotal +
-          shippingPrice
-        ).toFixed(2)
+    if (
+      shippingPrice < 0
+    ) {
+      throw new OrderError(
+        "O valor do frete retornado é inválido.",
+        502,
+        "INVALID_SHIPPING_PRICE"
       );
+    }
+
+    // ======================================
+    // TOTAL FINAL
+    // ======================================
+
+    const total =
+      normalizeMoney(
+        subtotal +
+          shippingPrice
+      );
+
+    if (
+      total <= 0
+    ) {
+      throw new OrderError(
+        "O valor total do pedido é inválido.",
+        400,
+        "INVALID_ORDER_TOTAL"
+      );
+    }
+
+    // ======================================
+    // LOG TEMPORÁRIO DE CONFERÊNCIA
+    // ======================================
+
+    console.log(
+      "PEDIDO COM FRETE VALIDADO:",
+      {
+        subtotal,
+        shippingPrice,
+        total,
+
+        shippingServiceId:
+          preparedShipping
+            .shippingServiceId,
+
+        shippingService:
+          preparedShipping
+            .shippingService,
+
+        shippingCompany:
+          preparedShipping
+            .shippingCompany,
+
+        shippingDeadline:
+          preparedShipping
+            .shippingDeadline,
+      }
+    );
 
     // ======================================
     // CRIAR PEDIDO
     // ======================================
 
     const order =
-      await prisma.order.create({
-        data: {
-          userId:
-            req.user.id,
+      await prisma.order
+        .create({
+          data: {
+            userId:
+              req.user.id,
 
-          status:
-            ORDER_STATUS.PENDING,
+            status:
+              ORDER_STATUS.PENDING,
 
-          subtotal,
+            // ================================
+            // VALORES
+            // ================================
 
-          shippingPrice,
+            subtotal,
 
-          total,
+            shippingPrice,
 
-          // ================================
-          // FRETE
-          // ================================
+            total,
 
-          shippingServiceId:
-            preparedShipping
-              .shippingServiceId,
+            // ================================
+            // FRETE
+            // ================================
 
-          shippingService:
-            preparedShipping
-              .shippingService,
+            shippingServiceId:
+              preparedShipping
+                .shippingServiceId,
 
-          shippingCompany:
-            preparedShipping
-              .shippingCompany,
+            shippingService:
+              preparedShipping
+                .shippingService,
 
-          shippingDeadline:
-            preparedShipping
-              .shippingDeadline,
+            shippingCompany:
+              preparedShipping
+                .shippingCompany,
 
-          trackingCode:
-            null,
+            shippingDeadline:
+              preparedShipping
+                .shippingDeadline,
 
-          trackingUrl:
-            null,
+            trackingCode:
+              null,
 
-          shippingLabelUrl:
-            null,
+            trackingUrl:
+              null,
 
-          // ================================
-          // ENDEREÇO CONGELADO
-          // ================================
+            shippingLabelUrl:
+              null,
 
-          shippingName:
-            shippingAddress
-              .shippingName,
+            // ================================
+            // ENDEREÇO CONGELADO
+            // ================================
 
-          shippingPhone:
-            shippingAddress
-              .shippingPhone,
+            shippingName:
+              shippingAddress
+                .shippingName,
 
-          shippingZipCode:
-            shippingAddress
-              .shippingZipCode,
+            shippingPhone:
+              shippingAddress
+                .shippingPhone,
 
-          shippingStreet:
-            shippingAddress
-              .shippingStreet,
+            shippingZipCode:
+              shippingAddress
+                .shippingZipCode,
 
-          shippingNumber:
-            shippingAddress
-              .shippingNumber,
+            shippingStreet:
+              shippingAddress
+                .shippingStreet,
 
-          shippingComplement:
-            shippingAddress
-              .shippingComplement,
+            shippingNumber:
+              shippingAddress
+                .shippingNumber,
 
-          shippingNeighborhood:
-            shippingAddress
-              .shippingNeighborhood,
+            shippingComplement:
+              shippingAddress
+                .shippingComplement,
 
-          shippingCity:
-            shippingAddress
-              .shippingCity,
+            shippingNeighborhood:
+              shippingAddress
+                .shippingNeighborhood,
 
-          shippingState:
-            shippingAddress
-              .shippingState,
+            shippingCity:
+              shippingAddress
+                .shippingCity,
 
-          // ================================
-          // ITENS
-          // ================================
+            shippingState:
+              shippingAddress
+                .shippingState,
 
-          items: {
-            create:
-              normalizedItems,
+            // ================================
+            // ITENS
+            // ================================
+
+            items: {
+              create:
+                normalizedItems,
+            },
           },
-        },
 
-        include:
-          getOrderInclude({
-            includeCpfAndAddress:
-              true,
-          }),
-      });
+          include:
+            getOrderInclude({
+              includeCpfAndAddress:
+                true,
+            }),
+        });
 
     return res
       .status(201)
@@ -1413,30 +2034,34 @@ const getMyOrders = async (
     }
 
     const orders =
-      await prisma.order.findMany({
-        where: {
-          userId:
-            req.user.id,
-        },
+      await prisma.order
+        .findMany({
+          where: {
+            userId:
+              req.user.id,
+          },
 
-        include: {
-          items: {
-            include: {
-              product: {
-                include: {
-                  images: true,
+          include: {
+            items: {
+              include: {
+                product: {
+                  include: {
+                    images:
+                      true,
+                  },
                 },
-              },
 
-              variation: true,
+                variation:
+                  true,
+              },
             },
           },
-        },
 
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
+          orderBy: {
+            createdAt:
+              "desc",
+          },
+        });
 
     return res
       .status(200)
@@ -1464,14 +2089,16 @@ const getAllOrders = async (
 ) => {
   try {
     const orders =
-      await prisma.order.findMany({
-        include:
-          getOrderInclude(),
+      await prisma.order
+        .findMany({
+          include:
+            getOrderInclude(),
 
-        orderBy: {
-          createdAt: "desc",
-        },
-      });
+          orderBy: {
+            createdAt:
+              "desc",
+          },
+        });
 
     return res
       .status(200)
@@ -1499,7 +2126,10 @@ const getOrderById = async (
 ) => {
   try {
     const id =
-      req.params?.id?.trim();
+      String(
+        req.params?.id ||
+          ""
+      ).trim();
 
     if (!id) {
       return res
@@ -1511,17 +2141,18 @@ const getOrderById = async (
     }
 
     const order =
-      await prisma.order.findUnique({
-        where: {
-          id,
-        },
+      await prisma.order
+        .findUnique({
+          where: {
+            id,
+          },
 
-        include:
-          getOrderInclude({
-            includeCpfAndAddress:
-              true,
-          }),
-      });
+          include:
+            getOrderInclude({
+              includeCpfAndAddress:
+                true,
+            }),
+        });
 
     if (!order) {
       return res
@@ -1584,105 +2215,139 @@ const updateOrderStatus = async (
         .status(400)
         .json({
           message:
-            "Status do pedido inválido.",
-          code:
-            "INVALID_ORDER_STATUS",
+            "Status de pedido inválido.",
+
+          validStatuses:
+            VALID_ORDER_STATUSES,
         });
     }
 
-    const existingOrder =
-      await prisma.order.findUnique({
-        where: {
-          id,
-        },
-
-        include: {
-          items: true,
-        },
-      });
-
-    if (!existingOrder) {
-      return res
-        .status(404)
-        .json({
-          message:
-            "Pedido não encontrado.",
-        });
-    }
-
-    if (
-      existingOrder.status ===
-      status
-    ) {
-      const unchangedOrder =
-        await prisma.order.findUnique({
-          where: {
-            id,
-          },
-
-          include:
-            getOrderInclude({
-              includeCpfAndAddress:
-                true,
-            }),
-        });
-
-      return res
-        .status(200)
-        .json(
-          unchangedOrder
-        );
-    }
-
-    const shouldReduce =
-      shouldStatusReduceStock(
-        status
-      ) &&
-      !existingOrder
-        .stockReducedAt;
-
-    const shouldRestore =
-      shouldStatusRestoreStock({
-        previousStatus:
-          existingOrder.status,
-
-        nextStatus:
-          status,
-
-        stockReducedAt:
-          existingOrder
-            .stockReducedAt,
-      });
+    // ======================================
+    // TRANSAÇÃO
+    // ======================================
 
     const updatedOrder =
       await prisma.$transaction(
-        async (
-          transaction
-        ) => {
+        async (tx) => {
+          const order =
+            await tx.order
+              .findUnique({
+                where: {
+                  id,
+                },
+
+                include: {
+                  items: {
+                    include: {
+                      product:
+                        true,
+
+                      variation:
+                        true,
+                    },
+                  },
+                },
+              });
+
+          if (!order) {
+            throw new OrderError(
+              "Pedido não encontrado.",
+              404,
+              "ORDER_NOT_FOUND"
+            );
+          }
+
+          // ==================================
+          // MESMO STATUS
+          // ==================================
+
           if (
-            shouldReduce
+            order.status ===
+            status
           ) {
+            return tx.order
+              .findUnique({
+                where: {
+                  id,
+                },
+
+                include:
+                  getOrderInclude({
+                    includeCpfAndAddress:
+                      true,
+                  }),
+              });
+          }
+
+          // ==================================
+          // REDUZIR ESTOQUE
+          // ==================================
+
+          const shouldReduce =
+            !order.stockReducedAt &&
+            shouldStatusReduceStock(
+              status
+            );
+
+          if (shouldReduce) {
             await reduceOrderStock({
-              transaction,
+              transaction:
+                tx,
 
               items:
-                existingOrder.items,
+                order.items.map(
+                  (item) => ({
+                    variationId:
+                      item.variationId,
+
+                    quantity:
+                      item.quantity,
+
+                    productName:
+                      item.product
+                        ?.name ||
+                      `Produto ${item.productId}`,
+
+                    size:
+                      item.variation
+                        ?.size ||
+                      "",
+                  })
+                ),
             });
           }
 
-          if (
-            shouldRestore
-          ) {
+          // ==================================
+          // DEVOLVER ESTOQUE
+          // ==================================
+
+          const shouldRestore =
+            shouldStatusRestoreStock({
+              previousStatus:
+                order.status,
+
+              nextStatus:
+                status,
+
+              stockReducedAt:
+                order.stockReducedAt,
+            });
+
+          if (shouldRestore) {
             await restoreOrderStock({
-              transaction,
+              transaction:
+                tx,
 
               items:
-                existingOrder.items,
+                order.items,
             });
           }
 
-          return transaction
-            .order
+          // ==================================
+          // ATUALIZAR PEDIDO
+          // ==================================
+
+          return tx.order
             .update({
               where: {
                 id,
@@ -1717,9 +2382,7 @@ const updateOrderStatus = async (
 
     return res
       .status(200)
-      .json(
-        updatedOrder
-      );
+      .json(updatedOrder);
   } catch (error) {
     if (
       error instanceof
@@ -1762,235 +2425,236 @@ const updateOrderStatus = async (
 // ATUALIZAR RASTREAMENTO DO PEDIDO
 // ==========================================
 
-const updateOrderTracking = async (
-  req,
-  res
-) => {
-  try {
-    const id =
-      String(
-        req.params?.id || ""
-      ).trim();
+const updateOrderTracking =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const id =
+        String(
+          req.params?.id ||
+            ""
+        ).trim();
 
-    if (!id) {
+      if (!id) {
+        return res
+          .status(400)
+          .json({
+            message:
+              "ID do pedido inválido.",
+          });
+      }
+
+      const order =
+        await prisma.order
+          .findUnique({
+            where: {
+              id,
+            },
+
+            select: {
+              id: true,
+            },
+          });
+
+      if (!order) {
+        return res
+          .status(404)
+          .json({
+            message:
+              "Pedido não encontrado.",
+          });
+      }
+
+      const trackingCode =
+        normalizeText(
+          req.body
+            ?.trackingCode
+        );
+
+      const trackingUrl =
+        normalizeText(
+          req.body
+            ?.trackingUrl
+        );
+
+      const shippingLabelUrl =
+        normalizeText(
+          req.body
+            ?.shippingLabelUrl
+        );
+
+      const updatedOrder =
+        await prisma.order
+          .update({
+            where: {
+              id,
+            },
+
+            data: {
+              trackingCode:
+                trackingCode ||
+                null,
+
+              trackingUrl:
+                trackingUrl ||
+                null,
+
+              shippingLabelUrl:
+                shippingLabelUrl ||
+                null,
+            },
+
+            include:
+              getOrderInclude({
+                includeCpfAndAddress:
+                  true,
+              }),
+          });
+
       return res
-        .status(400)
-        .json({
-          message:
-            "ID do pedido inválido.",
-        });
-    }
-
-    const trackingCode =
-      normalizeText(
-        req.body?.trackingCode
+        .status(200)
+        .json(
+          updatedOrder
+        );
+    } catch (error) {
+      console.error(
+        "Erro ao atualizar rastreamento do pedido:",
+        error
       );
 
-    const trackingUrl =
-      normalizeText(
-        req.body?.trackingUrl
+      return sendServerError(
+        res,
+        "Erro ao atualizar rastreamento do pedido."
       );
-
-    if (
-      trackingUrl &&
-      !/^https?:\/\//i.test(
-        trackingUrl
-      )
-    ) {
-      return res
-        .status(400)
-        .json({
-          message:
-            "A URL de rastreamento é inválida.",
-          code:
-            "INVALID_TRACKING_URL",
-        });
     }
-
-    const existingOrder =
-      await prisma.order.findUnique({
-        where: {
-          id,
-        },
-
-        select: {
-          id: true,
-        },
-      });
-
-    if (!existingOrder) {
-      return res
-        .status(404)
-        .json({
-          message:
-            "Pedido não encontrado.",
-        });
-    }
-
-    const updatedOrder =
-      await prisma.order.update({
-        where: {
-          id,
-        },
-
-        data: {
-          trackingCode:
-            trackingCode ||
-            null,
-
-          trackingUrl:
-            trackingUrl ||
-            null,
-        },
-
-        include:
-          getOrderInclude({
-            includeCpfAndAddress:
-              true,
-          }),
-      });
-
-    return res
-      .status(200)
-      .json(
-        updatedOrder
-      );
-  } catch (error) {
-    console.error(
-      "Erro ao atualizar rastreamento do pedido:",
-      error
-    );
-
-    return sendServerError(
-      res,
-      "Erro ao atualizar rastreamento do pedido."
-    );
-  }
-};
+  };
 
 // ==========================================
-// DASHBOARD ADMINISTRATIVO
+// DASHBOARD ADMIN
 // ==========================================
 
-const getDashboard = async (
-  req,
-  res
-) => {
-  try {
-    const [
-      products,
-      users,
-      orders,
-      revenue,
-      pendingOrders,
-      productsWithInventory,
-    ] =
-      await Promise.all([
-        prisma.product.count(),
-
-        prisma.user.count(),
-
-        prisma.order.count(),
-
-        prisma.order.aggregate({
-          where: {
-            status: {
-              in:
-                STOCK_REDUCING_STATUSES,
-            },
-          },
-
-          _sum: {
-            total: true,
-          },
-        }),
-
-        prisma.order.count({
-          where: {
-            status:
-              ORDER_STATUS.PENDING,
-          },
-        }),
-
-        prisma.product.findMany({
-          select: {
-            id: true,
-
-            images: {
-              select: {
-                id: true,
-              },
-
-              take: 1,
-            },
-
-            variations: {
-              select: {
-                stock: true,
-              },
-            },
-          },
-        }),
-      ]);
-
-    const lowStockProducts =
-      productsWithInventory
-        .filter(
-          (product) =>
-            product.variations.some(
-              (variation) =>
-                Number(
-                  variation.stock
-                ) <= 5
-            )
-        )
-        .length;
-
-    const productsWithoutImage =
-      productsWithInventory
-        .filter(
-          (product) =>
-            !Array.isArray(
-              product.images
-            ) ||
-            product.images
-              .length === 0
-        )
-        .length;
-
-    return res
-      .status(200)
-      .json({
-        products,
-
-        users,
-
-        orders,
-
-        revenue:
-          Number(
-            revenue._sum
-              .total || 0
-          ),
-
+const getDashboard =
+  async (
+    req,
+    res
+  ) => {
+    try {
+      const [
+        totalOrders,
         pendingOrders,
+        paidOrders,
+        processingOrders,
+        shippedOrders,
+        deliveredOrders,
+        cancelledOrders,
+        refundedOrders,
+        revenueResult,
+      ] =
+        await Promise.all([
+          prisma.order.count(),
 
-        lowStockProducts,
+          prisma.order.count({
+            where: {
+              status:
+                ORDER_STATUS.PENDING,
+            },
+          }),
 
-        productsWithoutImage,
-      });
-  } catch (error) {
-    console.error(
-      "Erro ao carregar dashboard:",
-      error
-    );
+          prisma.order.count({
+            where: {
+              status:
+                ORDER_STATUS.PAID,
+            },
+          }),
 
-    return sendServerError(
-      res,
-      "Erro ao carregar dashboard."
-    );
-  }
-};
+          prisma.order.count({
+            where: {
+              status:
+                ORDER_STATUS.PROCESSING,
+            },
+          }),
+
+          prisma.order.count({
+            where: {
+              status:
+                ORDER_STATUS.SHIPPED,
+            },
+          }),
+
+          prisma.order.count({
+            where: {
+              status:
+                ORDER_STATUS.DELIVERED,
+            },
+          }),
+
+          prisma.order.count({
+            where: {
+              status:
+                ORDER_STATUS.CANCELLED,
+            },
+          }),
+
+          prisma.order.count({
+            where: {
+              status:
+                ORDER_STATUS.REFUNDED,
+            },
+          }),
+
+          prisma.order.aggregate({
+            where: {
+              status: {
+                in: [
+                  ORDER_STATUS.PAID,
+                  ORDER_STATUS.PROCESSING,
+                  ORDER_STATUS.SHIPPED,
+                  ORDER_STATUS.DELIVERED,
+                ],
+              },
+            },
+
+            _sum: {
+              total:
+                true,
+            },
+          }),
+        ]);
+
+      const revenue =
+        normalizeMoney(
+          revenueResult
+            ?._sum
+            ?.total || 0
+        );
+
+      return res
+        .status(200)
+        .json({
+          totalOrders,
+          pendingOrders,
+          paidOrders,
+          processingOrders,
+          shippedOrders,
+          deliveredOrders,
+          cancelledOrders,
+          refundedOrders,
+          revenue,
+        });
+    } catch (error) {
+      console.error(
+        "Erro ao carregar dashboard:",
+        error
+      );
+
+      return sendServerError(
+        res,
+        "Erro ao carregar dashboard."
+      );
+    }
+  };
 
 // ==========================================
 // EXPORTS
