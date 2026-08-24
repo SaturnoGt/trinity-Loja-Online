@@ -1169,6 +1169,19 @@ const calculateShipping = async (
         );
 
     // ======================================
+    // DEBUG: RESPOSTA BRUTA
+    // ======================================
+
+    console.log(
+      "RESPOSTA BRUTA MELHOR ENVIO:",
+      JSON.stringify(
+        data,
+        null,
+        2
+      )
+    );
+
+    // ======================================
     // ERRO MELHOR ENVIO
     // ======================================
 
@@ -1203,6 +1216,19 @@ const calculateShipping = async (
       normalizeShippingOptions(
         data
       );
+
+    // ======================================
+    // DEBUG: OPÇÕES NORMALIZADAS
+    // ======================================
+
+    console.log(
+      "OPÇÕES NORMALIZADAS:",
+      JSON.stringify(
+        options,
+        null,
+        2
+      )
+    );
 
     return res
       .status(200)
@@ -1245,6 +1271,7 @@ const calculateShipping = async (
       });
   }
 };
+
 // ==========================================
 // GERAR URL DE AUTORIZAÇÃO
 // ==========================================
