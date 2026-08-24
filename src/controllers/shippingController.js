@@ -270,10 +270,14 @@ function calculateExpirationDate(
   expiresInSeconds
 ) {
   const seconds =
-    Number(expiresInSeconds);
+    Number(
+      expiresInSeconds
+    );
 
   if (
-    !Number.isFinite(seconds) ||
+    !Number.isFinite(
+      seconds
+    ) ||
     seconds <= 0
   ) {
     return null;
@@ -311,7 +315,9 @@ async function saveCredential({
       refreshToken || ""
     ).trim();
 
-  if (!normalizedAccessToken) {
+  if (
+    !normalizedAccessToken
+  ) {
     throw new ShippingError(
       "Access token do Melhor Envio inválido.",
       500,
@@ -386,8 +392,9 @@ function isCredentialExpired(
   }
 
   const expiration =
-    new Date(expiresAt)
-      .getTime();
+    new Date(
+      expiresAt
+    ).getTime();
 
   if (
     Number.isNaN(
@@ -400,7 +407,8 @@ function isCredentialExpired(
   return (
     expiration <=
     Date.now() +
-      safetySeconds * 1000
+      safetySeconds *
+        1000
   );
 }
 
@@ -430,16 +438,21 @@ function normalizeShippingOptions(
     })
     .map((option) => ({
       id:
-        option.id !== undefined
-          ? String(option.id)
+        option.id !==
+        undefined
+          ? String(
+              option.id
+            )
           : null,
 
       name:
-        option.name || null,
+        option.name ||
+        null,
 
       price:
         Number(
-          option.price || 0
+          option.price ||
+            0
         ),
 
       customPrice:
@@ -459,7 +472,8 @@ function normalizeShippingOptions(
           : null,
 
       currency:
-        option.currency || "R$",
+        option.currency ||
+        "R$",
 
       deliveryTime:
         option.delivery_time !==
@@ -481,24 +495,33 @@ function normalizeShippingOptions(
         option.company
           ? {
               id:
-                option.company.id !==
+                option
+                  .company
+                  .id !==
                 undefined
                   ? String(
-                      option.company.id
+                      option
+                        .company
+                        .id
                     )
                   : null,
 
               name:
-                option.company.name ||
+                option
+                  .company
+                  .name ||
                 null,
 
               picture:
-                option.company.picture ||
+                option
+                  .company
+                  .picture ||
                 null,
             }
           : null,
     }));
 }
+
 // ==========================================
 // TROCAR CODE POR TOKEN
 // ==========================================
@@ -517,7 +540,9 @@ async function exchangeAuthorizationCode(
       code || ""
     ).trim();
 
-  if (!normalizedCode) {
+  if (
+    !normalizedCode
+  ) {
     throw new ShippingError(
       "Código de autorização não informado.",
       400,
@@ -528,40 +553,62 @@ async function exchangeAuthorizationCode(
   const baseUrl =
     getMelhorEnvioBaseUrl();
 
+  // ========================================
+  // CORPO OAUTH
+  // ========================================
+
+  const body =
+    new URLSearchParams();
+
+  body.set(
+    "grant_type",
+    "authorization_code"
+  );
+
+  body.set(
+    "client_id",
+    clientId
+  );
+
+  body.set(
+    "client_secret",
+    clientSecret
+  );
+
+  body.set(
+    "redirect_uri",
+    redirectUri
+  );
+
+  body.set(
+    "code",
+    normalizedCode
+  );
+
+  // ========================================
+  // TROCAR CODE POR TOKEN
+  // ========================================
+
   const response =
     await fetch(
       `${baseUrl}/oauth/token`,
       {
-        method: "POST",
+        method:
+          "POST",
 
         headers: {
           Accept:
             "application/json",
 
           "Content-Type":
-            "application/json",
+            "application/x-www-form-urlencoded",
 
           "User-Agent":
             getMelhorEnvioUserAgent(),
         },
 
         body:
-          JSON.stringify({
-            grant_type:
-              "authorization_code",
-
-            client_id:
-              clientId,
-
-            client_secret:
-              clientSecret,
-
-            redirect_uri:
-              redirectUri,
-
-            code:
-              normalizedCode,
-          }),
+          body.toString(),
       }
     );
 
@@ -572,7 +619,9 @@ async function exchangeAuthorizationCode(
         () => null
       );
 
-  if (!response.ok) {
+  if (
+    !response.ok
+  ) {
     console.error(
       "Erro ao trocar código OAuth no Melhor Envio:",
       data
@@ -586,7 +635,9 @@ async function exchangeAuthorizationCode(
     );
   }
 
-  if (!data?.access_token) {
+  if (
+    !data?.access_token
+  ) {
     throw new ShippingError(
       "O Melhor Envio não retornou um access token.",
       502,
@@ -618,7 +669,6 @@ async function exchangeAuthorizationCode(
       ),
   };
 }
-
 // ==========================================
 // RENOVAR ACCESS TOKEN
 // ==========================================
@@ -649,37 +699,57 @@ async function refreshMelhorEnvioAccessToken(
   const baseUrl =
     getMelhorEnvioBaseUrl();
 
+  // ========================================
+  // CORPO OAUTH
+  // ========================================
+
+  const body =
+    new URLSearchParams();
+
+  body.set(
+    "grant_type",
+    "refresh_token"
+  );
+
+  body.set(
+    "refresh_token",
+    normalizedRefreshToken
+  );
+
+  body.set(
+    "client_id",
+    clientId
+  );
+
+  body.set(
+    "client_secret",
+    clientSecret
+  );
+
+  // ========================================
+  // RENOVAR TOKEN
+  // ========================================
+
   const response =
     await fetch(
       `${baseUrl}/oauth/token`,
       {
-        method: "POST",
+        method:
+          "POST",
 
         headers: {
           Accept:
             "application/json",
 
           "Content-Type":
-            "application/json",
+            "application/x-www-form-urlencoded",
 
           "User-Agent":
             getMelhorEnvioUserAgent(),
         },
 
         body:
-          JSON.stringify({
-            grant_type:
-              "refresh_token",
-
-            refresh_token:
-              normalizedRefreshToken,
-
-            client_id:
-              clientId,
-
-            client_secret:
-              clientSecret,
-          }),
+          body.toString(),
       }
     );
 
@@ -690,7 +760,9 @@ async function refreshMelhorEnvioAccessToken(
         () => null
       );
 
-  if (!response.ok) {
+  if (
+    !response.ok
+  ) {
     console.error(
       "Erro ao renovar token do Melhor Envio:",
       data
@@ -704,7 +776,9 @@ async function refreshMelhorEnvioAccessToken(
     );
   }
 
-  if (!data?.access_token) {
+  if (
+    !data?.access_token
+  ) {
     throw new ShippingError(
       "O Melhor Envio não retornou um novo access token.",
       502,
@@ -750,10 +824,6 @@ async function getActiveAccessToken() {
   // ========================================
 
   if (!credential) {
-    // Fallback temporário para facilitar
-    // a migração caso ainda exista token
-    // no .env.
-
     const envToken =
       String(
         process.env
@@ -1296,10 +1366,6 @@ const melhorEnvioOAuthCallback =
       // ======================================
       // REDIRECIONAMENTO
       // ======================================
-      //
-      // Nunca devolvemos access_token ou
-      // refresh_token para o navegador.
-      // ======================================
 
       const frontendUrl =
         String(
@@ -1388,10 +1454,6 @@ const refreshMelhorEnvioToken =
           });
       }
 
-      // ======================================
-      // CREDENCIAL SALVA
-      // ======================================
-
       const credential =
         await getStoredCredential();
 
@@ -1442,18 +1504,10 @@ const refreshMelhorEnvioToken =
           });
       }
 
-      // ======================================
-      // RENOVAR
-      // ======================================
-
       const tokenData =
         await refreshMelhorEnvioAccessToken(
           credential.refreshToken
         );
-
-      // ======================================
-      // SALVAR NOVAS CREDENCIAIS
-      // ======================================
 
       await saveCredential({
         accessToken:
@@ -1521,11 +1575,6 @@ const refreshMelhorEnvioToken =
 
 // ==========================================
 // STATUS DA INTEGRAÇÃO
-// ==========================================
-//
-// Útil para o Admin descobrir se o Melhor
-// Envio já está autorizado sem revelar
-// nenhum segredo.
 // ==========================================
 
 const getMelhorEnvioStatus =
