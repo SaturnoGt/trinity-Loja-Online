@@ -215,7 +215,6 @@ function getStatusClasses(status) {
     'border-zinc-700 bg-zinc-800 text-zinc-300'
   );
 }
-
 async function readResponse(response) {
   const text = await response.text();
 
@@ -239,7 +238,7 @@ export default function UsuarioDetalhesAdminPage() {
   const userId = normalizeId(params?.id);
 
   const {
-    token,
+    isAuthenticated,
     user: currentUser,
     loading: authLoading,
     logout,
@@ -266,7 +265,7 @@ export default function UsuarioDetalhesAdminPage() {
         return;
       }
 
-      if (!token) {
+      if (!isAuthenticated) {
         setUser(null);
         setError(
           'Sua sessão não foi encontrada. Faça login novamente.'
@@ -285,9 +284,9 @@ export default function UsuarioDetalhesAdminPage() {
           )}`,
           {
             method: 'GET',
+            credentials: 'include',
             headers: {
               Accept: 'application/json',
-              Authorization: `Bearer ${token}`,
             },
             cache: 'no-store',
             signal,
@@ -366,8 +365,8 @@ export default function UsuarioDetalhesAdminPage() {
     },
     [
       authLoading,
+      isAuthenticated,
       logout,
-      token,
       userId,
     ]
   );
@@ -457,12 +456,11 @@ export default function UsuarioDetalhesAdminPage() {
   const isCurrentUser =
     Boolean(currentUser?.id && user?.id) &&
     String(currentUser.id) === String(user.id);
-
-  async function handleRoleChange() {
+      async function handleRoleChange() {
     if (
       updatingRole ||
       !user ||
-      !token
+      !isAuthenticated
     ) {
       return;
     }
@@ -501,11 +499,11 @@ export default function UsuarioDetalhesAdminPage() {
         )}/role`,
         {
           method: 'PATCH',
+          credentials: 'include',
           headers: {
             Accept: 'application/json',
             'Content-Type':
               'application/json',
-            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             role: newRole,
@@ -713,8 +711,7 @@ export default function UsuarioDetalhesAdminPage() {
           }
         />
       </section>
-
-      <section className="mb-8 grid gap-6 xl:grid-cols-2">
+            <section className="mb-8 grid gap-6 xl:grid-cols-2">
         <InfoCard
           title="Dados pessoais"
           icon={<UserRound size={21} />}
@@ -936,7 +933,6 @@ export default function UsuarioDetalhesAdminPage() {
     </div>
   );
 }
-
 function MetricCard({
   icon,
   label,

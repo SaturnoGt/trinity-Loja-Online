@@ -230,7 +230,6 @@ function getProductImage(item) {
     '/produtos/trinity/frente.jpeg'
   );
 }
-
 function getShippingAddressLines(
   order
 ) {
@@ -284,7 +283,7 @@ export default function PedidoDetalhesAdminPage() {
     );
 
   const {
-    token,
+    isAuthenticated,
     loading:
       authLoading,
     logout,
@@ -353,7 +352,7 @@ export default function PedidoDetalhesAdminPage() {
           return;
         }
 
-        if (!token) {
+        if (!isAuthenticated) {
           setError(
             'Sua sessão não foi encontrada. Faça login novamente.'
           );
@@ -382,12 +381,11 @@ export default function PedidoDetalhesAdminPage() {
               {
                 method: 'GET',
 
+                credentials: 'include',
+
                 headers: {
                   Accept:
                     'application/json',
-
-                  Authorization:
-                    `Bearer ${token}`,
                 },
 
                 cache:
@@ -523,9 +521,9 @@ export default function PedidoDetalhesAdminPage() {
       },
       [
         authLoading,
+        isAuthenticated,
         logout,
         orderId,
-        token,
       ]
     );
 
@@ -544,7 +542,7 @@ export default function PedidoDetalhesAdminPage() {
 
   // ========================================
   // TOTAIS
-  // ========================================
+    // ========================================
 
   const itemsTotal =
     useMemo(() => {
@@ -667,7 +665,8 @@ export default function PedidoDetalhesAdminPage() {
             ''
         ).trim()
     );
-      // ========================================
+
+  // ========================================
   // ATUALIZAR STATUS
   // ========================================
 
@@ -680,7 +679,7 @@ export default function PedidoDetalhesAdminPage() {
       return;
     }
 
-    if (!token) {
+    if (!isAuthenticated) {
       toast.error(
         'Sua sessão expirou. Faça login novamente.'
       );
@@ -713,15 +712,14 @@ export default function PedidoDetalhesAdminPage() {
           {
             method: 'PATCH',
 
+            credentials: 'include',
+
             headers: {
               Accept:
                 'application/json',
 
               'Content-Type':
                 'application/json',
-
-              Authorization:
-                `Bearer ${token}`,
             },
 
             body:
@@ -839,8 +837,7 @@ export default function PedidoDetalhesAdminPage() {
     ) {
       return;
     }
-
-    if (!token) {
+        if (!isAuthenticated) {
       toast.error(
         'Sua sessão expirou. Faça login novamente.'
       );
@@ -880,15 +877,14 @@ export default function PedidoDetalhesAdminPage() {
           {
             method: 'PATCH',
 
+            credentials: 'include',
+
             headers: {
               Accept:
                 'application/json',
 
               'Content-Type':
                 'application/json',
-
-              Authorization:
-                `Bearer ${token}`,
             },
 
             body:
@@ -1073,7 +1069,8 @@ export default function PedidoDetalhesAdminPage() {
       </div>
     );
   }
-    return (
+
+  return (
     <div>
       <header className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
@@ -1098,8 +1095,8 @@ export default function PedidoDetalhesAdminPage() {
           </h1>
 
           <p className="mt-3 text-zinc-400">
-            Criado em{" "}
-            {formatDate(
+            Criado em{' '}
+                        {formatDate(
               order.createdAt
             )}
           </p>
@@ -1154,8 +1151,8 @@ export default function PedidoDetalhesAdminPage() {
             )}
 
             {savingStatus
-              ? "Salvando..."
-              : "Atualizar status"}
+              ? 'Salvando...'
+              : 'Atualizar status'}
           </button>
         </div>
       </header>
@@ -1195,7 +1192,7 @@ export default function PedidoDetalhesAdminPage() {
               ? formatPrice(
                   shippingPrice
                 )
-              : "Grátis / não definido"
+              : 'Grátis / não definido'
           }
         />
 
@@ -1211,7 +1208,7 @@ export default function PedidoDetalhesAdminPage() {
               ? String(
                   order.paymentId
                 )
-              : "Não informado"
+              : 'Não informado'
           }
           breakValue
         />
@@ -1244,7 +1241,7 @@ export default function PedidoDetalhesAdminPage() {
                       item?.productName ||
                       item?.product
                         ?.name ||
-                      "Produto sem nome";
+                      'Produto sem nome';
 
                     const quantity =
                       Math.max(
@@ -1291,22 +1288,22 @@ export default function PedidoDetalhesAdminPage() {
                           </p>
 
                           <p className="mt-1 text-sm text-zinc-500">
-                            Tamanho:{" "}
+                            Tamanho:{' '}
                             {item?.size ||
                               item
                                 ?.variation
                                 ?.size ||
-                              "N/A"}{" "}
-                            · Cor:{" "}
+                              'N/A'}{' '}
+                            · Cor:{' '}
                             {item?.color ||
                               item
                                 ?.variation
                                 ?.color ||
-                              "N/A"}
+                              'N/A'}
                           </p>
 
                           <p className="mt-1 text-sm text-zinc-500">
-                            Quantidade:{" "}
+                            Quantidade:{' '}
                             {
                               quantity
                             }
@@ -1315,7 +1312,7 @@ export default function PedidoDetalhesAdminPage() {
                           <p className="mt-1 text-sm text-zinc-500">
                             {formatPrice(
                               unitPrice
-                            )}{" "}
+                            )}{' '}
                             por unidade
                           </p>
                         </div>
@@ -1362,7 +1359,7 @@ export default function PedidoDetalhesAdminPage() {
                     ? formatPrice(
                         shippingPrice
                       )
-                    : "Grátis / não definido"}
+                    : 'Grátis / não definido'}
                 </span>
               </div>
 
@@ -1379,8 +1376,7 @@ export default function PedidoDetalhesAdminPage() {
               </div>
             </div>
           </section>
-
-          <section className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-6">
+                    <section className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-6">
             <div className="mb-6 flex items-center gap-3">
               <Truck size={22} />
 
@@ -1394,7 +1390,7 @@ export default function PedidoDetalhesAdminPage() {
                 label="Transportadora"
                 value={
                   order.shippingCompany ||
-                  "Não informado"
+                  'Não informado'
                 }
               />
 
@@ -1402,7 +1398,7 @@ export default function PedidoDetalhesAdminPage() {
                 label="Serviço"
                 value={
                   order.shippingService ||
-                  "Não informado"
+                  'Não informado'
                 }
               />
 
@@ -1416,10 +1412,10 @@ export default function PedidoDetalhesAdminPage() {
                         Number(
                           order.shippingDeadline
                         ) === 1
-                          ? "dia útil"
-                          : "dias úteis"
+                          ? 'dia útil'
+                          : 'dias úteis'
                       }`
-                    : "Não informado"
+                    : 'Não informado'
                 }
               />
 
@@ -1430,7 +1426,7 @@ export default function PedidoDetalhesAdminPage() {
                     ? formatPrice(
                         shippingPrice
                       )
-                    : "Grátis / não definido"
+                    : 'Grátis / não definido'
                 }
               />
             </div>
@@ -1506,8 +1502,8 @@ export default function PedidoDetalhesAdminPage() {
               )}
 
               {savingTracking
-                ? "Salvando..."
-                : "Salvar rastreamento"}
+                ? 'Salvando...'
+                : 'Salvar rastreamento'}
             </button>
           </section>
         </div>
@@ -1527,7 +1523,7 @@ export default function PedidoDetalhesAdminPage() {
               value={
                 order.user?.name ||
                 order.shippingName ||
-                "Não informado"
+                'Não informado'
               }
             />
 
@@ -1535,7 +1531,7 @@ export default function PedidoDetalhesAdminPage() {
               label="E-mail"
               value={
                 order.user?.email ||
-                "Não informado"
+                'Não informado'
               }
             />
 
@@ -1544,7 +1540,7 @@ export default function PedidoDetalhesAdminPage() {
               value={
                 order.shippingPhone ||
                 order.user?.phone ||
-                "Não informado"
+                'Não informado'
               }
             />
 
@@ -1552,7 +1548,7 @@ export default function PedidoDetalhesAdminPage() {
               label="CPF"
               value={
                 order.user?.cpf ||
-                "Não informado"
+                'Não informado'
               }
             />
           </section>
@@ -1620,12 +1616,12 @@ function InfoCard({
 
       <p
         className={[
-          "mt-4 text-2xl font-black text-white",
+          'mt-4 text-2xl font-black text-white',
 
           breakValue
-            ? "break-all text-base"
-            : "",
-        ].join(" ")}
+            ? 'break-all text-base'
+            : '',
+        ].join(' ')}
       >
         {value}
       </p>

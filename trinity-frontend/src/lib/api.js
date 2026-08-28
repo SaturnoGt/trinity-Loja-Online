@@ -80,11 +80,12 @@ export async function apiFetch(endpoint, options = {}) {
 
   try {
     const response = await fetch(url, {
-      ...fetchOptions,
-      body,
-      headers: requestHeaders,
-      signal: controller.signal,
-    });
+  ...fetchOptions,
+  credentials: "include",
+  body,
+  headers: requestHeaders,
+  signal: controller.signal,
+});
 
     const data = await parseResponse(response);
 

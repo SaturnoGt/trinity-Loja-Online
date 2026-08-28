@@ -1,30 +1,30 @@
 import { apiFetch } from "@/lib/api";
 
-function authHeaders(token) {
-  return {
-    Authorization: `Bearer ${token}`,
-  };
-}
-
 export const orderService = {
-  getMyOrders(token) {
-    return apiFetch("/orders/my-orders", {
-      cache: "no-store",
-      headers: authHeaders(token),
-    });
+  getMyOrders() {
+    return apiFetch(
+      "/orders/my-orders",
+      {
+        cache: "no-store",
+      }
+    );
   },
 
-  getAdminOrders(token) {
-    return apiFetch("/orders/admin", {
-      cache: "no-store",
-      headers: authHeaders(token),
-    });
+  getAdminOrders() {
+    return apiFetch(
+      "/orders/admin",
+      {
+        cache: "no-store",
+      }
+    );
   },
 
-  getDashboard(token) {
-    return apiFetch("/orders/dashboard", {
-      cache: "no-store",
-      headers: authHeaders(token),
-    });
+  getDashboard() {
+    return apiFetch(
+      "/orders/dashboard",
+      {
+        cache: "no-store",
+      }
+    );
   },
 };

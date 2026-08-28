@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+
 import {
   AlertCircle,
   AlertTriangle,
@@ -15,6 +16,7 @@ import {
   ShoppingBag,
   Users,
 } from 'lucide-react';
+
 import {
   useCallback,
   useEffect,
@@ -24,31 +26,40 @@ import {
 
 const QUICK_ACTIONS = [
   {
-    title: 'Cadastrar produto',
+    title:
+      'Cadastrar produto',
     description:
       'Adicione um novo item ao catálogo.',
-    href: '/admin/produtos',
+    href:
+      '/admin/produtos',
     icon: Package,
   },
   {
-    title: 'Gerenciar pedidos',
+    title:
+      'Gerenciar pedidos',
     description:
       'Acompanhe pagamentos e entregas.',
-    href: '/admin/pedidos',
-    icon: ClipboardList,
+    href:
+      '/admin/pedidos',
+    icon:
+      ClipboardList,
   },
   {
-    title: 'Controlar estoque',
+    title:
+      'Controlar estoque',
     description:
       'Confira quantidades e variações.',
-    href: '/admin/estoque',
+    href:
+      '/admin/estoque',
     icon: Boxes,
   },
   {
-    title: 'Ver clientes',
+    title:
+      'Ver clientes',
     description:
       'Gerencie usuários e permissões.',
-    href: '/admin/usuarios',
+    href:
+      '/admin/usuarios',
     icon: Users,
   },
 ];
@@ -59,33 +70,41 @@ const STATUS_CONFIG = {
     className:
       'border-amber-500/20 bg-amber-500/10 text-amber-300',
   },
+
   PAID: {
     label: 'Pago',
     className:
       'border-emerald-500/20 bg-emerald-500/10 text-emerald-300',
   },
+
   PROCESSING: {
-    label: 'Em preparação',
+    label:
+      'Em preparação',
     className:
       'border-blue-500/20 bg-blue-500/10 text-blue-300',
   },
+
   SHIPPED: {
     label: 'Enviado',
     className:
       'border-violet-500/20 bg-violet-500/10 text-violet-300',
   },
+
   DELIVERED: {
     label: 'Entregue',
     className:
       'border-emerald-500/20 bg-emerald-500/10 text-emerald-300',
   },
+
   CANCELLED: {
     label: 'Cancelado',
     className:
       'border-red-500/20 bg-red-500/10 text-red-300',
   },
+
   REFUNDED: {
-    label: 'Reembolsado',
+    label:
+      'Reembolsado',
     className:
       'border-orange-500/20 bg-orange-500/10 text-orange-300',
   },
@@ -101,213 +120,275 @@ const INITIAL_DASHBOARD = {
   productsWithoutImage: 0,
 };
 
-function getStoredToken() {
-  if (typeof window === 'undefined') {
-    return '';
-  }
-
-  return (
-    localStorage.getItem('token') ||
-    localStorage.getItem('authToken') ||
-    ''
+function formatCurrency(
+  value
+) {
+  return new Intl.NumberFormat(
+    'pt-BR',
+    {
+      style: 'currency',
+      currency: 'BRL',
+    }
+  ).format(
+    Number(value || 0)
   );
-}
-
-function formatCurrency(value) {
-  return new Intl.NumberFormat('pt-BR', {
-    style: 'currency',
-    currency: 'BRL',
-  }).format(Number(value || 0));
 }
 
 function formatDate(value) {
   if (!value) {
-    return 'Data indisponível';
+    return (
+      'Data indisponível'
+    );
   }
 
-  return new Intl.DateTimeFormat('pt-BR', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(value));
+  return new Intl.DateTimeFormat(
+    'pt-BR',
+    {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    }
+  ).format(
+    new Date(value)
+  );
 }
 
-function getShortOrderId(id) {
+function getShortOrderId(
+  id
+) {
   if (!id) {
     return 'Sem ID';
   }
 
-  const normalizedId = String(id);
+  const normalizedId =
+    String(id);
 
-  return normalizedId.length > 10
-    ? normalizedId.slice(-8).toUpperCase()
-    : normalizedId.toUpperCase();
+  return normalizedId.length >
+    10
+    ? normalizedId
+        .slice(-8)
+        .toUpperCase()
+    : normalizedId
+        .toUpperCase();
 }
 
 export default function AdminPage() {
-  const [dashboard, setDashboard] = useState(
+  const [
+    dashboard,
+    setDashboard,
+  ] = useState(
     INITIAL_DASHBOARD
   );
 
-  const [recentOrders, setRecentOrders] =
-    useState([]);
+  const [
+    recentOrders,
+    setRecentOrders,
+  ] = useState([]);
 
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] =
-    useState(false);
-  const [error, setError] = useState('');
+  const [
+    loading,
+    setLoading,
+  ] = useState(true);
 
-  const loadDashboard = useCallback(
-    async ({ isRefresh = false } = {}) => {
-      try {
-        if (isRefresh) {
-          setRefreshing(true);
-        } else {
-          setLoading(true);
-        }
+  const [
+    refreshing,
+    setRefreshing,
+  ] = useState(false);
 
-        setError('');
+  const [
+    error,
+    setError,
+  ] = useState('');
 
-        const apiUrl =
-          process.env.NEXT_PUBLIC_API_URL;
+  const loadDashboard =
+    useCallback(
+      async ({
+        isRefresh = false,
+      } = {}) => {
+        try {
+          if (isRefresh) {
+            setRefreshing(
+              true
+            );
+          } else {
+            setLoading(
+              true
+            );
+          }
 
-        if (!apiUrl) {
-          throw new Error(
-            'NEXT_PUBLIC_API_URL não configurada.'
+          setError('');
+
+          const apiUrl =
+            process.env
+              .NEXT_PUBLIC_API_URL;
+
+          if (!apiUrl) {
+            throw new Error(
+              'NEXT_PUBLIC_API_URL não configurada.'
+            );
+          }
+
+          const requestOptions = {
+            method: 'GET',
+            credentials:
+              'include',
+            cache:
+              'no-store',
+            headers: {
+              'Content-Type':
+                'application/json',
+            },
+          };
+
+          const [
+            dashboardResponse,
+            ordersResponse,
+          ] =
+            await Promise.all([
+              fetch(
+                `${apiUrl}/orders/dashboard`,
+                requestOptions
+              ),
+
+              fetch(
+                `${apiUrl}/orders/admin`,
+                requestOptions
+              ),
+            ]);
+
+          if (
+            dashboardResponse.status ===
+              401 ||
+            ordersResponse.status ===
+              401
+          ) {
+            throw new Error(
+              'Sua sessão expirou. Entre novamente.'
+            );
+          }
+
+          if (
+            dashboardResponse.status ===
+              403 ||
+            ordersResponse.status ===
+              403
+          ) {
+            throw new Error(
+              'Você não possui permissão para acessar o painel.'
+            );
+          }
+                    if (
+            !dashboardResponse.ok
+          ) {
+            const responseData =
+              await dashboardResponse
+                .json()
+                .catch(
+                  () => null
+                );
+
+            throw new Error(
+              responseData?.message ||
+                'Erro ao carregar os indicadores.'
+            );
+          }
+
+          if (
+            !ordersResponse.ok
+          ) {
+            const responseData =
+              await ordersResponse
+                .json()
+                .catch(
+                  () => null
+                );
+
+            throw new Error(
+              responseData?.message ||
+                'Erro ao carregar os pedidos.'
+            );
+          }
+
+          const [
+            dashboardData,
+            ordersData,
+          ] =
+            await Promise.all([
+              dashboardResponse.json(),
+              ordersResponse.json(),
+            ]);
+
+          setDashboard({
+            products: Number(
+              dashboardData?.products ||
+                0
+            ),
+
+            users: Number(
+              dashboardData?.users ||
+                0
+            ),
+
+            orders: Number(
+              dashboardData?.orders ||
+                0
+            ),
+
+            revenue: Number(
+              dashboardData?.revenue ||
+                0
+            ),
+
+            pendingOrders:
+              Number(
+                dashboardData?.pendingOrders ||
+                  0
+              ),
+
+            lowStockProducts:
+              Number(
+                dashboardData?.lowStockProducts ||
+                  0
+              ),
+
+            productsWithoutImage:
+              Number(
+                dashboardData?.productsWithoutImage ||
+                  0
+              ),
+          });
+
+          setRecentOrders(
+            Array.isArray(
+              ordersData
+            )
+              ? ordersData.slice(
+                  0,
+                  5
+                )
+              : []
+          );
+        } catch (err) {
+          console.error(
+            'Erro ao carregar dashboard:',
+            err
+          );
+
+          setError(
+            err.message ||
+              'Não foi possível carregar o Dashboard.'
+          );
+        } finally {
+          setLoading(false);
+          setRefreshing(
+            false
           );
         }
-
-        const token = getStoredToken();
-
-        if (!token) {
-          throw new Error(
-            'Token de autenticação não encontrado.'
-          );
-        }
-
-        const requestOptions = {
-          method: 'GET',
-          cache: 'no-store',
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
-        };
-
-        const [
-          dashboardResponse,
-          ordersResponse,
-        ] = await Promise.all([
-          fetch(
-            `${apiUrl}/orders/dashboard`,
-            requestOptions
-          ),
-
-          fetch(
-            `${apiUrl}/orders/admin`,
-            requestOptions
-          ),
-        ]);
-
-        if (
-          dashboardResponse.status === 401 ||
-          ordersResponse.status === 401
-        ) {
-          throw new Error(
-            'Sua sessão expirou. Entre novamente.'
-          );
-        }
-
-        if (
-          dashboardResponse.status === 403 ||
-          ordersResponse.status === 403
-        ) {
-          throw new Error(
-            'Você não possui permissão para acessar o painel.'
-          );
-        }
-
-        if (!dashboardResponse.ok) {
-          const responseData =
-            await dashboardResponse
-              .json()
-              .catch(() => null);
-
-          throw new Error(
-            responseData?.message ||
-              'Erro ao carregar os indicadores.'
-          );
-        }
-
-        if (!ordersResponse.ok) {
-          const responseData =
-            await ordersResponse
-              .json()
-              .catch(() => null);
-
-          throw new Error(
-            responseData?.message ||
-              'Erro ao carregar os pedidos.'
-          );
-        }
-
-        const [
-          dashboardData,
-          ordersData,
-        ] = await Promise.all([
-          dashboardResponse.json(),
-          ordersResponse.json(),
-        ]);
-
-        setDashboard({
-          products: Number(
-            dashboardData?.products || 0
-          ),
-          users: Number(
-            dashboardData?.users || 0
-          ),
-          orders: Number(
-            dashboardData?.orders || 0
-          ),
-          revenue: Number(
-            dashboardData?.revenue || 0
-          ),
-          pendingOrders: Number(
-            dashboardData?.pendingOrders || 0
-          ),
-          lowStockProducts: Number(
-            dashboardData?.lowStockProducts || 0
-          ),
-          productsWithoutImage: Number(
-            dashboardData?.productsWithoutImage ||
-              0
-          ),
-        });
-
-        setRecentOrders(
-          Array.isArray(ordersData)
-            ? ordersData.slice(0, 5)
-            : []
-        );
-      } catch (err) {
-        console.error(
-          'Erro ao carregar dashboard:',
-          err
-        );
-
-        setError(
-          err.message ||
-            'Não foi possível carregar o Dashboard.'
-        );
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    []
-  );
+      },
+      []
+    );
 
   useEffect(() => {
     loadDashboard();
@@ -316,29 +397,42 @@ export default function AdminPage() {
   const metrics = useMemo(
     () => [
       {
-        label: 'Receita total',
-        value: formatCurrency(
-          dashboard.revenue
-        ),
-        description: 'Vendas confirmadas',
-        icon: CircleDollarSign,
+        label:
+          'Receita total',
+        value:
+          formatCurrency(
+            dashboard.revenue
+          ),
+        description:
+          'Vendas confirmadas',
+        icon:
+          CircleDollarSign,
       },
       {
         label: 'Pedidos',
-        value: String(dashboard.orders),
-        description: 'Pedidos registrados',
+        value: String(
+          dashboard.orders
+        ),
+        description:
+          'Pedidos registrados',
         icon: ShoppingBag,
       },
       {
         label: 'Produtos',
-        value: String(dashboard.products),
-        description: 'Produtos cadastrados',
+        value: String(
+          dashboard.products
+        ),
+        description:
+          'Produtos cadastrados',
         icon: Package,
       },
       {
         label: 'Clientes',
-        value: String(dashboard.users),
-        description: 'Usuários cadastrados',
+        value: String(
+          dashboard.users
+        ),
+        description:
+          'Usuários cadastrados',
         icon: Users,
       },
     ],
@@ -348,51 +442,69 @@ export default function AdminPage() {
   const alerts = useMemo(
     () => [
       {
-        title: 'Estoque baixo',
-        value: dashboard.lowStockProducts,
+        title:
+          'Estoque baixo',
+        value:
+          dashboard.lowStockProducts,
         description:
-          dashboard.lowStockProducts === 0
+          dashboard.lowStockProducts ===
+          0
             ? 'Nenhum produto em alerta.'
-            : `${dashboard.lowStockProducts} ${
-                dashboard.lowStockProducts === 1
+            : `${
+                dashboard.lowStockProducts
+              } ${
+                dashboard.lowStockProducts ===
+                1
                   ? 'produto precisa'
                   : 'produtos precisam'
               } de reposição.`,
-        href: '/admin/estoque',
+        href:
+          '/admin/estoque',
       },
       {
-        title: 'Pedidos pendentes',
-        value: dashboard.pendingOrders,
+        title:
+          'Pedidos pendentes',
+        value:
+          dashboard.pendingOrders,
         description:
-          dashboard.pendingOrders === 0
+          dashboard.pendingOrders ===
+          0
             ? 'Nenhum pedido aguardando ação.'
-            : `${dashboard.pendingOrders} ${
-                dashboard.pendingOrders === 1
+            : `${
+                dashboard.pendingOrders
+              } ${
+                dashboard.pendingOrders ===
+                1
                   ? 'pedido aguarda'
                   : 'pedidos aguardam'
               } atendimento.`,
-        href: '/admin/pedidos',
+        href:
+          '/admin/pedidos',
       },
       {
-        title: 'Produtos sem imagem',
+        title:
+          'Produtos sem imagem',
         value:
           dashboard.productsWithoutImage,
         description:
-          dashboard.productsWithoutImage === 0
+          dashboard.productsWithoutImage ===
+          0
             ? 'Nenhum problema encontrado.'
-            : `${dashboard.productsWithoutImage} ${
+            : `${
+                dashboard.productsWithoutImage
+              } ${
                 dashboard.productsWithoutImage ===
                 1
                   ? 'produto está'
                   : 'produtos estão'
               } sem imagem.`,
-        href: '/admin/produtos',
+        href:
+          '/admin/produtos',
       },
     ],
     [dashboard]
   );
-
-  return (
+    return (
     <div className="space-y-8">
       <section className="overflow-hidden rounded-3xl border border-zinc-800 bg-zinc-900/70">
         <div className="relative p-6 sm:p-8">
@@ -405,13 +517,17 @@ export default function AdminPage() {
               </p>
 
               <h1 className="mt-3 text-3xl font-black text-white sm:text-4xl">
-                Bem-vindo ao painel Trinity
+                Bem-vindo ao painel
+                Trinity
               </h1>
 
               <p className="mt-4 max-w-2xl leading-7 text-zinc-400">
-                Acompanhe os principais números da
-                loja, gerencie pedidos, produtos,
-                clientes e estoque em um só lugar.
+                Acompanhe os
+                principais números
+                da loja, gerencie
+                pedidos, produtos,
+                clientes e estoque
+                em um só lugar.
               </p>
             </div>
 
@@ -422,7 +538,10 @@ export default function AdminPage() {
                   isRefresh: true,
                 })
               }
-              disabled={loading || refreshing}
+              disabled={
+                loading ||
+                refreshing
+              }
               className="inline-flex w-fit items-center justify-center gap-2 rounded-2xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm font-bold text-zinc-200 transition hover:border-zinc-600 hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <RefreshCw
@@ -452,8 +571,8 @@ export default function AdminPage() {
 
             <div>
               <p className="font-bold text-red-200">
-                Não foi possível carregar os
-                dados
+                Não foi possível
+                carregar os dados
               </p>
 
               <p className="mt-1 text-sm text-red-300/80">
@@ -464,10 +583,15 @@ export default function AdminPage() {
 
           <button
             type="button"
-            onClick={() => loadDashboard()}
+            onClick={() =>
+              loadDashboard()
+            }
             className="inline-flex items-center justify-center gap-2 rounded-xl border border-red-400/20 bg-red-400/10 px-4 py-2 text-sm font-bold text-red-100 transition hover:bg-red-400/20"
           >
-            <RefreshCw size={15} />
+            <RefreshCw
+              size={15}
+            />
+
             Tentar novamente
           </button>
         </section>
@@ -475,41 +599,58 @@ export default function AdminPage() {
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {loading
-          ? Array.from({ length: 4 }).map(
+          ? Array.from({
+              length: 4,
+            }).map(
               (_, index) => (
-                <MetricSkeleton key={index} />
+                <MetricSkeleton
+                  key={index}
+                />
               )
             )
-          : metrics.map((metric) => {
-              const Icon = metric.icon;
+          : metrics.map(
+              (metric) => {
+                const Icon =
+                  metric.icon;
 
-              return (
-                <article
-                  key={metric.label}
-                  className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-[0.18em] text-zinc-500">
-                        {metric.label}
-                      </p>
+                return (
+                  <article
+                    key={
+                      metric.label
+                    }
+                    className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.18em] text-zinc-500">
+                          {
+                            metric.label
+                          }
+                        </p>
 
-                      <p className="mt-3 text-3xl font-black text-white">
-                        {metric.value}
-                      </p>
+                        <p className="mt-3 text-3xl font-black text-white">
+                          {
+                            metric.value
+                          }
+                        </p>
 
-                      <p className="mt-2 text-sm text-zinc-500">
-                        {metric.description}
-                      </p>
+                        <p className="mt-2 text-sm text-zinc-500">
+                          {
+                            metric.description
+                          }
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl border border-zinc-700 bg-zinc-800 p-3 text-zinc-300">
+                        <Icon
+                          size={22}
+                        />
+                      </div>
                     </div>
-
-                    <div className="rounded-2xl border border-zinc-700 bg-zinc-800 p-3 text-zinc-300">
-                      <Icon size={22} />
-                    </div>
-                  </div>
-                </article>
-              );
-            })}
+                  </article>
+                );
+              }
+            )}
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[1.5fr_1fr]">
@@ -521,7 +662,9 @@ export default function AdminPage() {
               </p>
 
               <p className="mt-1 text-sm text-zinc-500">
-                Últimas movimentações da loja.
+                Últimas
+                movimentações da
+                loja.
               </p>
             </div>
 
@@ -530,7 +673,10 @@ export default function AdminPage() {
               className="inline-flex items-center gap-2 text-sm font-bold text-zinc-300 transition hover:text-white"
             >
               Ver todos
-              <ArrowRight size={16} />
+
+              <ArrowRight
+                size={16}
+              />
             </Link>
           </div>
 
@@ -541,29 +687,41 @@ export default function AdminPage() {
                 className="animate-spin text-zinc-500"
               />
             </div>
-          ) : recentOrders.length === 0 ? (
+          ) : recentOrders.length ===
+            0 ? (
             <div className="flex min-h-72 flex-col items-center justify-center px-6 py-12 text-center">
               <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-800 text-zinc-400">
-                <ShoppingBag size={30} />
+                <ShoppingBag
+                  size={30}
+                />
               </div>
 
               <h2 className="mt-5 text-xl font-bold text-white">
-                Nenhum pedido recente
+                Nenhum pedido
+                recente
               </h2>
 
               <p className="mt-2 max-w-sm text-sm leading-6 text-zinc-500">
-                Quando novos pedidos forem
-                realizados, eles aparecerão aqui.
+                Quando novos
+                pedidos forem
+                realizados, eles
+                aparecerão aqui.
               </p>
             </div>
           ) : (
             <div className="divide-y divide-zinc-800">
-              {recentOrders.map((order) => (
-                <RecentOrderItem
-                  key={order.id}
-                  order={order}
-                />
-              ))}
+              {recentOrders.map(
+                (order) => (
+                  <RecentOrderItem
+                    key={
+                      order.id
+                    }
+                    order={
+                      order
+                    }
+                  />
+                )
+              )}
             </div>
           )}
         </article>
@@ -575,84 +733,121 @@ export default function AdminPage() {
             </p>
 
             <p className="mt-1 text-sm text-zinc-500">
-              Alertas importantes da operação.
+              Alertas importantes
+              da operação.
             </p>
           </div>
 
           <div className="space-y-3 p-5">
             {loading
-              ? Array.from({ length: 3 }).map(
+              ? Array.from({
+                  length: 3,
+                }).map(
                   (_, index) => (
                     <AlertSkeleton
-                      key={index}
+                      key={
+                        index
+                      }
                     />
                   )
                 )
-              : alerts.map((alert) => (
-                  <AlertItem
-                    key={alert.title}
-                    title={alert.title}
-                    description={
-                      alert.description
-                    }
-                    value={alert.value}
-                    href={alert.href}
-                  />
-                ))}
+              : alerts.map(
+                  (alert) => (
+                    <AlertItem
+                      key={
+                        alert.title
+                      }
+                      title={
+                        alert.title
+                      }
+                      description={
+                        alert.description
+                      }
+                      value={
+                        alert.value
+                      }
+                      href={
+                        alert.href
+                      }
+                    />
+                  )
+                )}
           </div>
         </article>
       </section>
-
-      <section>
+            <section>
         <div className="mb-5">
           <p className="text-xl font-black text-white">
             Ações rápidas
           </p>
 
           <p className="mt-1 text-sm text-zinc-500">
-            Atalhos para as tarefas mais usadas.
+            Atalhos para as
+            tarefas mais usadas.
           </p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {QUICK_ACTIONS.map((action) => {
-            const Icon = action.icon;
+          {QUICK_ACTIONS.map(
+            (action) => {
+              const Icon =
+                action.icon;
 
-            return (
-              <Link
-                key={action.title}
-                href={action.href}
-                className="group rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5 transition hover:border-zinc-600 hover:bg-zinc-900"
-              >
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-800 text-zinc-300 transition group-hover:bg-white group-hover:text-black">
-                  <Icon size={22} />
-                </div>
+              return (
+                <Link
+                  key={
+                    action.title
+                  }
+                  href={
+                    action.href
+                  }
+                  className="group rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5 transition hover:border-zinc-600 hover:bg-zinc-900"
+                >
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-zinc-800 text-zinc-300 transition group-hover:bg-white group-hover:text-black">
+                    <Icon
+                      size={22}
+                    />
+                  </div>
 
-                <h2 className="mt-5 font-bold text-white">
-                  {action.title}
-                </h2>
+                  <h2 className="mt-5 font-bold text-white">
+                    {
+                      action.title
+                    }
+                  </h2>
 
-                <p className="mt-2 text-sm leading-6 text-zinc-500">
-                  {action.description}
-                </p>
+                  <p className="mt-2 text-sm leading-6 text-zinc-500">
+                    {
+                      action.description
+                    }
+                  </p>
 
-                <span className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-zinc-400 transition group-hover:text-white">
-                  Acessar
-                  <ArrowRight size={15} />
-                </span>
-              </Link>
-            );
-          })}
+                  <span className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-zinc-400 transition group-hover:text-white">
+                    Acessar
+
+                    <ArrowRight
+                      size={15}
+                    />
+                  </span>
+                </Link>
+              );
+            }
+          )}
         </div>
       </section>
     </div>
   );
 }
 
-function RecentOrderItem({ order }) {
+function RecentOrderItem({
+  order,
+}) {
   const status =
-    STATUS_CONFIG[order.status] || {
-      label: order.status || 'Desconhecido',
+    STATUS_CONFIG[
+      order.status
+    ] || {
+      label:
+        order.status ||
+        'Desconhecido',
       className:
         'border-zinc-700 bg-zinc-800 text-zinc-300',
     };
@@ -662,15 +857,23 @@ function RecentOrderItem({ order }) {
     order.user?.email ||
     'Cliente não identificado';
 
-  const totalItems = Array.isArray(
-    order.items
-  )
-    ? order.items.reduce(
-        (total, item) =>
-          total + Number(item.quantity || 0),
-        0
-      )
-    : 0;
+  const totalItems =
+    Array.isArray(
+      order.items
+    )
+      ? order.items.reduce(
+          (
+            total,
+            item
+          ) =>
+            total +
+            Number(
+              item.quantity ||
+                0
+            ),
+          0
+        )
+      : 0;
 
   return (
     <Link
@@ -680,7 +883,10 @@ function RecentOrderItem({ order }) {
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <p className="font-bold text-white">
-            Pedido #{getShortOrderId(order.id)}
+            Pedido #
+            {getShortOrderId(
+              order.id
+            )}
           </p>
 
           <span
@@ -695,9 +901,14 @@ function RecentOrderItem({ order }) {
         </p>
 
         <p className="mt-1 text-xs text-zinc-600">
-          {formatDate(order.createdAt)}
+          {formatDate(
+            order.createdAt
+          )}
+
           {' • '}
+
           {totalItems}{' '}
+
           {totalItems === 1
             ? 'item'
             : 'itens'}
@@ -706,12 +917,17 @@ function RecentOrderItem({ order }) {
 
       <div className="flex items-center justify-between gap-4 sm:flex-col sm:items-end">
         <p className="font-black text-white">
-          {formatCurrency(order.total)}
+          {formatCurrency(
+            order.total
+          )}
         </p>
 
         <span className="inline-flex items-center gap-1 text-xs font-bold text-zinc-500">
           Detalhes
-          <ArrowRight size={13} />
+
+          <ArrowRight
+            size={13}
+          />
         </span>
       </div>
     </Link>
@@ -724,7 +940,8 @@ function AlertItem({
   value,
   href,
 }) {
-  const hasAlert = Number(value) > 0;
+  const hasAlert =
+    Number(value) > 0;
 
   return (
     <Link
@@ -739,9 +956,13 @@ function AlertItem({
         }
       >
         {hasAlert ? (
-          <AlertTriangle size={18} />
+          <AlertTriangle
+            size={18}
+          />
         ) : (
-          <CheckCircle2 size={18} />
+          <CheckCircle2
+            size={18}
+          />
         )}
       </div>
 
@@ -772,7 +993,9 @@ function MetricSkeleton() {
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1">
           <div className="h-3 w-24 rounded bg-zinc-800" />
+
           <div className="mt-4 h-9 w-32 rounded bg-zinc-800" />
+
           <div className="mt-3 h-4 w-36 rounded bg-zinc-800" />
         </div>
 
@@ -790,6 +1013,7 @@ function AlertSkeleton() {
 
         <div className="flex-1">
           <div className="h-4 w-28 rounded bg-zinc-800" />
+
           <div className="mt-3 h-3 w-full rounded bg-zinc-800" />
         </div>
       </div>

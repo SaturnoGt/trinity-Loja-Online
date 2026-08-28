@@ -25,18 +25,6 @@ import {
 
 import toast from 'react-hot-toast';
 
-function getStoredToken() {
-  if (typeof window === 'undefined') {
-    return '';
-  }
-
-  return (
-    localStorage.getItem('token') ||
-    localStorage.getItem('authToken') ||
-    ''
-  );
-}
-
 function normalizeStock(value) {
   const parsed = Number(value);
 
@@ -93,20 +81,12 @@ export default function EstoquePage() {
           );
         }
 
-        const token =
-          getStoredToken();
-
         const response =
           await fetch(
             `${apiUrl}/products`,
             {
+              credentials: 'include',
               cache: 'no-store',
-              headers: token
-                ? {
-                    Authorization:
-                      `Bearer ${token}`,
-                  }
-                : {},
             }
           );
 
@@ -257,23 +237,23 @@ export default function EstoquePage() {
       }
 
       return stockRows.filter(
-        (row) =>
-          [
+        (row) => {
+          const searchableText = [
             row.productName,
             row.category,
             row.size,
             row.color,
-          ].some((value) =>
-            String(value)
-              .toLowerCase()
-              .includes(
-                normalizedSearch
-              )
-          )
+          ]
+            .join(' ')
+            .toLowerCase();
+
+          return searchableText.includes(
+            normalizedSearch
+          );
+        }
       );
     }, [search, stockRows]);
-
-  const totalUnits =
+      const totalUnits =
     stockRows.reduce(
       (total, row) =>
         total + row.stock,
@@ -393,17 +373,6 @@ export default function EstoquePage() {
       return;
     }
 
-    const token =
-      getStoredToken();
-
-    if (!token) {
-      toast.error(
-        'Sua sessão não foi encontrada.'
-      );
-
-      return;
-    }
-
     const stock =
       normalizeStock(
         draftStock[
@@ -425,13 +394,11 @@ export default function EstoquePage() {
           `${apiUrl}/products/variations/${row.variationId}/stock`,
           {
             method: 'PATCH',
+            credentials: 'include',
 
             headers: {
               'Content-Type':
                 'application/json',
-
-              Authorization:
-                `Bearer ${token}`,
             },
 
             body: JSON.stringify({
@@ -532,8 +499,7 @@ export default function EstoquePage() {
               <h1 className="mt-3 text-3xl font-black text-white sm:text-4xl">
                 Controle de estoque
               </h1>
-
-              <p className="mt-4 max-w-2xl leading-7 text-zinc-400">
+                            <p className="mt-4 max-w-2xl leading-7 text-zinc-400">
                 Consulte, reponha e
                 corrija o estoque de
                 cada variação sem
@@ -761,7 +727,7 @@ export default function EstoquePage() {
                         <td className="px-6 py-4">
                           <Link
                             href={`/admin/produtos/${row.productId}`}
-                            className="font-bold text-white hover:text-zinc-300"
+                                                        className="font-bold text-white hover:text-zinc-300"
                           >
                             {
                               row.productName

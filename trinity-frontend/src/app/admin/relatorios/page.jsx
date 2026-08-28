@@ -69,18 +69,6 @@ const REVENUE_STATUSES = [
   'DELIVERED',
 ];
 
-function getStoredToken() {
-  if (typeof window === 'undefined') {
-    return '';
-  }
-
-  return (
-    localStorage.getItem('token') ||
-    localStorage.getItem('authToken') ||
-    ''
-  );
-}
-
 function formatCurrency(value) {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -107,7 +95,11 @@ function getLastMonths(amount = 6) {
   const months = [];
   const today = new Date();
 
-  for (let index = amount - 1; index >= 0; index--) {
+  for (
+    let index = amount - 1;
+    index >= 0;
+    index--
+  ) {
     const date = new Date(
       today.getFullYear(),
       today.getMonth() - index,
@@ -126,7 +118,6 @@ function getLastMonths(amount = 6) {
 
   return months;
 }
-
 export default function RelatoriosPage() {
   const [dashboard, setDashboard] = useState(
     INITIAL_DASHBOARD
@@ -158,19 +149,11 @@ export default function RelatoriosPage() {
           );
         }
 
-        const token = getStoredToken();
-
-        if (!token) {
-          throw new Error(
-            'Token de autenticação não encontrado.'
-          );
-        }
-
         const options = {
           method: 'GET',
+          credentials: 'include',
           cache: 'no-store',
           headers: {
-            Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json',
           },
         };
@@ -183,7 +166,10 @@ export default function RelatoriosPage() {
             `${apiUrl}/orders/dashboard`,
             options
           ),
-          fetch(`${apiUrl}/orders/admin`, options),
+          fetch(
+            `${apiUrl}/orders/admin`,
+            options
+          ),
         ]);
 
         if (
@@ -380,8 +366,7 @@ export default function RelatoriosPage() {
       ),
     [monthlyRevenue]
   );
-
-  const topCustomers = useMemo(() => {
+    const topCustomers = useMemo(() => {
     const customerMap = new Map();
 
     for (const order of confirmedOrders) {
@@ -598,7 +583,7 @@ export default function RelatoriosPage() {
                 );
 
                 return (
-                  <div
+                                    <div
                     key={month.key}
                     className="flex h-full min-w-0 flex-1 flex-col justify-end"
                   >

@@ -1,14 +1,14 @@
-"use client";
+'use client';
 
 import {
   useCallback,
   useEffect,
   useMemo,
   useState,
-} from "react";
+} from 'react';
 
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 import {
   AlertCircle,
@@ -21,13 +21,13 @@ import {
   RefreshCw,
   ShoppingBag,
   Truck,
-} from "lucide-react";
+} from 'lucide-react';
 
-import toast from "react-hot-toast";
+import toast from 'react-hot-toast';
 
 import {
   useAuth,
-} from "@/context/AuthContext";
+} from '@/context/AuthContext';
 
 // ==========================================
 // STATUS DOS PEDIDOS
@@ -36,58 +36,58 @@ import {
 const statusConfig = {
   PENDING: {
     label:
-      "Aguardando pagamento",
+      'Aguardando pagamento',
 
     className:
-      "border-amber-500/30 bg-amber-500/10 text-amber-400",
+      'border-amber-500/30 bg-amber-500/10 text-amber-400',
   },
 
   PAID: {
     label:
-      "Pagamento aprovado",
+      'Pagamento aprovado',
 
     className:
-      "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
+      'border-emerald-500/30 bg-emerald-500/10 text-emerald-400',
   },
 
   PROCESSING: {
     label:
-      "Em preparação",
+      'Em preparação',
 
     className:
-      "border-sky-500/30 bg-sky-500/10 text-sky-400",
+      'border-sky-500/30 bg-sky-500/10 text-sky-400',
   },
 
   SHIPPED: {
     label:
-      "Enviado",
+      'Enviado',
 
     className:
-      "border-indigo-500/30 bg-indigo-500/10 text-indigo-400",
+      'border-indigo-500/30 bg-indigo-500/10 text-indigo-400',
   },
 
   DELIVERED: {
     label:
-      "Entregue",
+      'Entregue',
 
     className:
-      "border-lime-500/30 bg-lime-500/10 text-lime-400",
+      'border-lime-500/30 bg-lime-500/10 text-lime-400',
   },
 
   CANCELLED: {
     label:
-      "Cancelado",
+      'Cancelado',
 
     className:
-      "border-red-500/30 bg-red-500/10 text-red-400",
+      'border-red-500/30 bg-red-500/10 text-red-400',
   },
 
   REFUNDED: {
     label:
-      "Reembolsado",
+      'Reembolsado',
 
     className:
-      "border-blue-500/30 bg-blue-500/10 text-blue-400",
+      'border-blue-500/30 bg-blue-500/10 text-blue-400',
   },
 };
 
@@ -99,13 +99,13 @@ function formatPrice(value) {
   return Number(
     value || 0
   ).toLocaleString(
-    "pt-BR",
+    'pt-BR',
     {
       style:
-        "currency",
+        'currency',
 
       currency:
-        "BRL",
+        'BRL',
     }
   );
 }
@@ -113,7 +113,7 @@ function formatPrice(value) {
 function formatDate(value) {
   if (!value) {
     return (
-      "Data não informada"
+      'Data não informada'
     );
   }
 
@@ -126,18 +126,18 @@ function formatDate(value) {
     )
   ) {
     return (
-      "Data não informada"
+      'Data não informada'
     );
   }
 
   return date.toLocaleString(
-    "pt-BR",
+    'pt-BR',
     {
       dateStyle:
-        "medium",
+        'medium',
 
       timeStyle:
-        "short",
+        'short',
     }
   );
 }
@@ -149,49 +149,49 @@ function formatShippingAddress(
     String(
       order
         ?.shippingStreet ||
-        ""
+        ''
     ).trim();
 
   const number =
     String(
       order
         ?.shippingNumber ||
-        ""
+        ''
     ).trim();
 
   const complement =
     String(
       order
         ?.shippingComplement ||
-        ""
+        ''
     ).trim();
 
   const neighborhood =
     String(
       order
         ?.shippingNeighborhood ||
-        ""
+        ''
     ).trim();
 
   const city =
     String(
       order
         ?.shippingCity ||
-        ""
+        ''
     ).trim();
 
   const state =
     String(
       order
         ?.shippingState ||
-        ""
+        ''
     ).trim();
 
   const zipCode =
     String(
       order
         ?.shippingZipCode ||
-        ""
+        ''
     ).trim();
 
   const firstLine = [
@@ -199,21 +199,21 @@ function formatShippingAddress(
     number,
   ]
     .filter(Boolean)
-    .join(", ");
+    .join(', ');
 
   const secondLine = [
     complement,
     neighborhood,
   ]
     .filter(Boolean)
-    .join(" • ");
+    .join(' • ');
 
   const thirdLine = [
     city,
     state,
   ]
     .filter(Boolean)
-    .join(" - ");
+    .join(' - ');
 
   const parts = [
     firstLine,
@@ -221,14 +221,13 @@ function formatShippingAddress(
     thirdLine,
     zipCode
       ? `CEP ${zipCode}`
-      : "",
+      : '',
   ].filter(Boolean);
 
   return parts.join(
-    " | "
+    ' | '
   );
 }
-
 function getShippingLabel(
   order
 ) {
@@ -236,14 +235,14 @@ function getShippingLabel(
     String(
       order
         ?.shippingCompany ||
-        ""
+        ''
     ).trim();
 
   const service =
     String(
       order
         ?.shippingService ||
-        ""
+        ''
     ).trim();
 
   if (
@@ -256,7 +255,7 @@ function getShippingLabel(
   return (
     company ||
     service ||
-    "Frete ainda não definido"
+    'Frete ainda não definido'
   );
 }
 
@@ -276,14 +275,14 @@ function getShippingDeadlineText(
     deadline <= 0
   ) {
     return (
-      "Prazo não informado"
+      'Prazo não informado'
     );
   }
 
   return `${deadline} ${
     deadline === 1
-      ? "dia útil"
-      : "dias úteis"
+      ? 'dia útil'
+      : 'dias úteis'
   }`;
 }
 
@@ -300,15 +299,15 @@ function getTrackingText(
 
   if (
     order?.status ===
-    "SHIPPED"
+    'SHIPPED'
   ) {
     return (
-      "Código de rastreio ainda não informado"
+      'Código de rastreio ainda não informado'
     );
   }
 
   return (
-    "Rastreamento disponível após o envio"
+    'Rastreamento disponível após o envio'
   );
 }
 
@@ -317,8 +316,8 @@ async function readResponse(
 ) {
   const contentType =
     response.headers.get(
-      "content-type"
-    ) || "";
+      'content-type'
+    ) || '';
 
   const text =
     await response.text();
@@ -329,7 +328,7 @@ async function readResponse(
 
   if (
     contentType.includes(
-      "application/json"
+      'application/json'
     )
   ) {
     try {
@@ -338,7 +337,7 @@ async function readResponse(
       );
     } catch {
       throw new Error(
-        "A API retornou um JSON inválido."
+        'A API retornou um JSON inválido.'
       );
     }
   }
@@ -347,12 +346,12 @@ async function readResponse(
     text
       .trim()
       .startsWith(
-        "<!DOCTYPE"
+        '<!DOCTYPE'
       ) ||
     text
       .trim()
       .startsWith(
-        "<html"
+        '<html'
       )
   ) {
     throw new Error(
@@ -375,7 +374,6 @@ export default function MeusPedidosPage() {
     useRouter();
 
   const {
-    token,
     loading:
       authLoading,
     isAuthenticated,
@@ -394,12 +392,12 @@ export default function MeusPedidosPage() {
   const [
     error,
     setError,
-  ] = useState("");
+  ] = useState('');
 
   const loadOrders =
     useCallback(
       async () => {
-        if (!token) {
+        if (!isAuthenticated) {
           setLoading(
             false
           );
@@ -413,7 +411,7 @@ export default function MeusPedidosPage() {
 
         if (!apiUrl) {
           const message =
-            "A URL da API não foi configurada no frontend.";
+            'A URL da API não foi configurada no frontend.';
 
           setError(
             message
@@ -436,7 +434,7 @@ export default function MeusPedidosPage() {
           );
 
           setError(
-            ""
+            ''
           );
 
           const response =
@@ -444,18 +442,18 @@ export default function MeusPedidosPage() {
               `${apiUrl}/orders/my-orders`,
               {
                 method:
-                  "GET",
+                  'GET',
+
+                credentials:
+                  'include',
 
                 headers: {
                   Accept:
-                    "application/json",
-
-                  Authorization:
-                    `Bearer ${token}`,
+                    'application/json',
                 },
 
                 cache:
-                  "no-store",
+                  'no-store',
               }
             );
 
@@ -469,11 +467,11 @@ export default function MeusPedidosPage() {
             401
           ) {
             toast.error(
-              "Sua sessão expirou. Faça login novamente."
+              'Sua sessão expirou. Faça login novamente.'
             );
 
             router.replace(
-              "/login"
+              '/login'
             );
 
             return;
@@ -507,14 +505,14 @@ export default function MeusPedidosPage() {
           requestError
         ) {
           console.error(
-            "Erro ao carregar pedidos:",
+            'Erro ao carregar pedidos:',
             requestError
           );
 
           const message =
             requestError
               ?.message ||
-            "Não foi possível carregar seus pedidos.";
+            'Não foi possível carregar seus pedidos.';
 
           setError(
             message
@@ -531,11 +529,10 @@ export default function MeusPedidosPage() {
       },
       [
         router,
-        token,
+        isAuthenticated,
       ]
     );
-
-  useEffect(() => {
+      useEffect(() => {
     if (
       authLoading
     ) {
@@ -546,7 +543,7 @@ export default function MeusPedidosPage() {
       !isAuthenticated
     ) {
       router.replace(
-        "/login"
+        '/login'
       );
 
       setLoading(
@@ -577,16 +574,17 @@ export default function MeusPedidosPage() {
         orders.filter(
           (order) =>
             ![
-              "DELIVERED",
-              "CANCELLED",
-              "REFUNDED",
+              'DELIVERED',
+              'CANCELLED',
+              'REFUNDED',
             ].includes(
               order.status
             )
         ).length,
       [orders]
     );
-      if (
+
+  if (
     authLoading ||
     loading
   ) {
@@ -682,10 +680,10 @@ export default function MeusPedidosPage() {
                 ] || {
                   label:
                     order.status ||
-                    "Status desconhecido",
+                    'Status desconhecido',
 
                   className:
-                    "border-zinc-600 bg-zinc-800 text-zinc-300",
+                    'border-zinc-600 bg-zinc-800 text-zinc-300',
                 };
 
               const items =
@@ -779,7 +777,7 @@ export default function MeusPedidosPage() {
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.18em] text-zinc-500">
                         Data
-                      </p>
+                                              </p>
 
                       <p className="mt-2 flex items-center gap-2 text-sm text-zinc-300">
                         <CalendarDays
@@ -811,7 +809,7 @@ export default function MeusPedidosPage() {
                       title="Endereço de entrega"
                       text={
                         shippingAddress ||
-                        "Endereço não informado"
+                        'Endereço não informado'
                       }
                     />
 
@@ -834,7 +832,7 @@ export default function MeusPedidosPage() {
                       }
                       secondaryText={
                         order.trackingUrl
-                          ? "Link disponível"
+                          ? 'Link disponível'
                           : null
                       }
                     />
@@ -855,7 +853,7 @@ export default function MeusPedidosPage() {
                           ? formatPrice(
                               shippingPrice
                             )
-                          : "Grátis / não definido"
+                          : 'Grátis / não definido'
                       }
                     />
 
@@ -867,7 +865,8 @@ export default function MeusPedidosPage() {
                       highlight
                     />
                   </div>
-                                    <div className="space-y-4 p-6">
+
+                  <div className="space-y-4 p-6">
                     <div className="flex items-center justify-between gap-4">
                       <div>
                         <h2 className="text-lg font-black">
@@ -875,10 +874,10 @@ export default function MeusPedidosPage() {
                         </h2>
 
                         <p className="mt-1 text-sm text-zinc-500">
-                          {items.length}{" "}
+                          {items.length}{' '}
                           {items.length === 1
-                            ? "item"
-                            : "itens"}
+                            ? 'item'
+                            : 'itens'}
                         </p>
                       </div>
 
@@ -925,7 +924,7 @@ export default function MeusPedidosPage() {
                                 <p className="font-semibold">
                                   {item.productName ||
                                     item.product?.name ||
-                                    "Produto"}
+                                    'Produto'}
                                 </p>
 
                                 {(item.size ||
@@ -935,18 +934,18 @@ export default function MeusPedidosPage() {
                                   <p className="mt-1 text-sm text-zinc-400">
                                     {item.size ||
                                       item.variation?.size ||
-                                      ""}
+                                      ''}
 
                                     {(item.size ||
                                       item.variation?.size) &&
                                     (item.color ||
                                       item.variation?.color)
-                                      ? " • "
-                                      : ""}
+                                      ? ' • '
+                                      : ''}
 
                                     {item.color ||
                                       item.variation?.color ||
-                                      ""}
+                                      ''}
                                   </p>
                                 )}
 
@@ -969,7 +968,7 @@ export default function MeusPedidosPage() {
                   </div>
 
                   {order.status ===
-                    "DELIVERED" && (
+                    'DELIVERED' && (
                     <div className="border-t border-zinc-800 bg-lime-500/5 p-5">
                       <div className="flex items-center gap-3 text-lime-300">
                         <CheckCircle2
@@ -984,7 +983,7 @@ export default function MeusPedidosPage() {
                   )}
 
                   {order.status ===
-                    "CANCELLED" && (
+                    'CANCELLED' && (
                     <div className="border-t border-zinc-800 bg-red-500/5 p-5">
                       <div className="flex items-center gap-3 text-red-300">
                         <AlertCircle
@@ -999,7 +998,7 @@ export default function MeusPedidosPage() {
                   )}
 
                   {order.status ===
-                    "REFUNDED" && (
+                    'REFUNDED' && (
                     <div className="border-t border-zinc-800 bg-blue-500/5 p-5">
                       <div className="flex items-center gap-3 text-blue-300">
                         <RefreshCw
@@ -1025,7 +1024,6 @@ export default function MeusPedidosPage() {
 // ==========================================
 // CARDS DE MÉTRICA
 // ==========================================
-
 function MetricCard({
   label,
   value,
@@ -1102,8 +1100,8 @@ function SummaryBox({
     <div
       className={`rounded-2xl border p-4 ${
         highlight
-          ? "border-white/20 bg-white/5"
-          : "border-zinc-800 bg-zinc-950/50"
+          ? 'border-white/20 bg-white/5'
+          : 'border-zinc-800 bg-zinc-950/50'
       }`}
     >
       <p className="text-xs font-semibold uppercase tracking-[0.16em] text-zinc-500">
@@ -1113,8 +1111,8 @@ function SummaryBox({
       <p
         className={`mt-2 font-black ${
           highlight
-            ? "text-xl text-white"
-            : "text-zinc-200"
+            ? 'text-xl text-white'
+            : 'text-zinc-200'
         }`}
       >
         {value}

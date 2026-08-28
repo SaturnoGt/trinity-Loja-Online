@@ -99,7 +99,9 @@ function normalizeApiUrl(value) {
     .replace(/\/$/, '');
 }
 
-function getShippingCompanyName(option) {
+function getShippingCompanyName(
+  option
+) {
   if (
     typeof option?.company ===
     'string'
@@ -113,7 +115,9 @@ function getShippingCompanyName(option) {
   );
 }
 
-function getShippingDeadline(option) {
+function getShippingDeadline(
+  option
+) {
   const value =
     option?.customDeliveryTime ??
     option?.deliveryTime ??
@@ -122,12 +126,16 @@ function getShippingDeadline(option) {
   const deadline =
     Number(value);
 
-  return Number.isFinite(deadline)
+  return Number.isFinite(
+    deadline
+  )
     ? deadline
     : null;
 }
 
-function getShippingPrice(option) {
+function getShippingPrice(
+  option
+) {
   const value =
     option?.customPrice ??
     option?.price;
@@ -167,7 +175,6 @@ export default function CheckoutPage() {
 
   const {
     user,
-    token,
     loading: authLoading,
     isAuthenticated,
     updateProfile,
@@ -246,8 +253,7 @@ export default function CheckoutPage() {
     isAuthenticated,
     router,
   ]);
-
-  // ========================================
+    // ========================================
   // CARREGAR DADOS DO USUÁRIO
   // ========================================
 
@@ -280,10 +286,12 @@ export default function CheckoutPage() {
         user.number || '',
 
       complement:
-        user.complement || '',
+        user.complement ||
+        '',
 
       neighborhood:
-        user.neighborhood || '',
+        user.neighborhood ||
+        '',
 
       city:
         user.city || '',
@@ -311,20 +319,25 @@ export default function CheckoutPage() {
         ) => {
           const price =
             Number(
-              item?.product?.price ??
-              item?.price ??
-              0
+              item?.product
+                ?.price ??
+                item?.price ??
+                0
             );
 
           const quantity =
             Number(
               item?.quantity ||
-              1
+                1
             );
 
           if (
-            !Number.isFinite(price) ||
-            !Number.isFinite(quantity) ||
+            !Number.isFinite(
+              price
+            ) ||
+            !Number.isFinite(
+              quantity
+            ) ||
             price < 0 ||
             quantity <= 0
           ) {
@@ -373,12 +386,12 @@ export default function CheckoutPage() {
         formatPhone(value);
     }
 
-    if (name === 'zipCode') {
+    if (
+      name === 'zipCode'
+    ) {
       nextValue =
         formatZipCode(value);
 
-      // CEP mudou.
-      // A cotação antiga não vale mais.
       setShippingOptions(
         []
       );
@@ -420,7 +433,8 @@ export default function CheckoutPage() {
 
   function validateForm() {
     if (
-      cartItems.length === 0
+      cartItems.length ===
+      0
     ) {
       return (
         'Seu carrinho está vazio.'
@@ -564,8 +578,7 @@ export default function CheckoutPage() {
 
     return '';
   }
-
-  // ========================================
+    // ========================================
   // CALCULAR FRETE
   // ========================================
 
@@ -597,7 +610,8 @@ export default function CheckoutPage() {
     }
 
     if (
-      cartItems.length === 0
+      cartItems.length ===
+      0
     ) {
       const message =
         'Seu carrinho está vazio.';
@@ -613,7 +627,7 @@ export default function CheckoutPage() {
       return;
     }
 
-    if (!token) {
+    if (!isAuthenticated) {
       router.push(
         '/login'
       );
@@ -655,6 +669,8 @@ export default function CheckoutPage() {
           `${apiUrl}/shipping/calculate`,
           {
             method: 'POST',
+            credentials:
+              'include',
 
             headers: {
               Accept:
@@ -662,9 +678,6 @@ export default function CheckoutPage() {
 
               'Content-Type':
                 'application/json',
-
-              Authorization:
-                `Bearer ${token}`,
             },
 
             body:
@@ -683,7 +696,8 @@ export default function CheckoutPage() {
 
                       quantity:
                         Number(
-                          item.quantity
+                          item
+                            .quantity
                         ),
                     })
                   ),
@@ -739,7 +753,8 @@ export default function CheckoutPage() {
       );
 
       if (
-        options.length === 0
+        options.length ===
+        0
       ) {
         setShippingMessage(
           'Nenhuma opção de entrega foi encontrada para esse CEP.'
@@ -778,7 +793,8 @@ export default function CheckoutPage() {
         false
       );
     }
-  }  // ========================================
+  }
+    // ========================================
   // FINALIZAR CHECKOUT
   // ========================================
 
@@ -806,7 +822,7 @@ export default function CheckoutPage() {
       return;
     }
 
-    if (!token) {
+    if (!isAuthenticated) {
       router.push(
         '/login'
       );
@@ -833,10 +849,6 @@ export default function CheckoutPage() {
       // ====================================
       // 1. SALVAR DADOS NO PERFIL
       // ====================================
-      //
-      // Mantemos CPF, nascimento e avatar
-      // já existentes no usuário.
-      // ====================================
 
       if (
         typeof updateProfile ===
@@ -855,10 +867,12 @@ export default function CheckoutPage() {
             user?.cpf || '',
 
           birthDate:
-            user?.birthDate || '',
+            user?.birthDate ||
+            '',
 
           avatarUrl:
-            user?.avatarUrl || '',
+            user?.avatarUrl ||
+            '',
 
           zipCode:
             onlyNumbers(
@@ -898,6 +912,8 @@ export default function CheckoutPage() {
           `${apiUrl}/orders`,
           {
             method: 'POST',
+            credentials:
+              'include',
 
             headers: {
               Accept:
@@ -905,9 +921,6 @@ export default function CheckoutPage() {
 
               'Content-Type':
                 'application/json',
-
-              Authorization:
-                `Bearer ${token}`,
             },
 
             body:
@@ -931,16 +944,12 @@ export default function CheckoutPage() {
 
                       quantity:
                         Number(
-                          item.quantity
+                          item
+                            .quantity
                         ),
                     })
                   ),
 
-                // Quando o Melhor Envio
-                // estiver conectado,
-                // o backend poderá usar
-                // esses dados para validar
-                // a opção escolhida.
                 shipping:
                   selectedShipping
                     ? {
@@ -990,7 +999,9 @@ export default function CheckoutPage() {
         );
       }
 
-      if (!orderResponse.ok) {
+      if (
+        !orderResponse.ok
+      ) {
         if (
           orderData?.code ===
           'INCOMPLETE_SHIPPING_ADDRESS'
@@ -1025,8 +1036,7 @@ export default function CheckoutPage() {
           'O pedido foi criado sem um identificador válido.'
         );
       }
-
-      // ====================================
+            // ====================================
       // 3. CRIAR PREFERÊNCIA MERCADO PAGO
       // ====================================
 
@@ -1035,6 +1045,8 @@ export default function CheckoutPage() {
           `${apiUrl}/payment/create-preference`,
           {
             method: 'POST',
+            credentials:
+              'include',
 
             headers: {
               Accept:
@@ -1042,9 +1054,6 @@ export default function CheckoutPage() {
 
               'Content-Type':
                 'application/json',
-
-              Authorization:
-                `Bearer ${token}`,
             },
 
             body:
@@ -1071,7 +1080,9 @@ export default function CheckoutPage() {
         );
       }
 
-      if (!paymentResponse.ok) {
+      if (
+        !paymentResponse.ok
+      ) {
         throw new Error(
           paymentData?.message ||
             paymentData?.error ||
@@ -1169,7 +1180,9 @@ export default function CheckoutPage() {
           </h1>
 
           <p className="mt-3 leading-7 text-zinc-400">
-            Seu pedido foi preparado com sucesso.
+            Seu pedido foi
+            preparado com
+            sucesso.
           </p>
 
           <Link
@@ -1189,7 +1202,10 @@ export default function CheckoutPage() {
           href="/carrinho"
           className="inline-flex items-center gap-2 text-sm font-bold text-zinc-400 transition hover:text-white"
         >
-          <ArrowLeft size={17} />
+          <ArrowLeft
+            size={17}
+          />
+
           Voltar ao carrinho
         </Link>
 
@@ -1203,7 +1219,9 @@ export default function CheckoutPage() {
           </h1>
 
           <p className="mt-3 text-zinc-400">
-            Confirme seus dados, calcule o frete e siga para o pagamento.
+            Confirme seus dados,
+            calcule o frete e siga
+            para o pagamento.
           </p>
         </div>
 
@@ -1214,7 +1232,9 @@ export default function CheckoutPage() {
         )}
 
         <form
-          onSubmit={handleSubmit}
+          onSubmit={
+            handleSubmit
+          }
           className="mt-8 grid gap-8 lg:grid-cols-[1.4fr_0.8fr]"
         >
           <div className="space-y-6">
@@ -1229,8 +1249,12 @@ export default function CheckoutPage() {
                 <Field
                   label="Nome completo"
                   name="name"
-                  value={form.name}
-                  onChange={handleChange}
+                  value={
+                    form.name
+                  }
+                  onChange={
+                    handleChange
+                  }
                   placeholder="Seu nome"
                   required
                 />
@@ -1239,8 +1263,12 @@ export default function CheckoutPage() {
                   label="E-mail"
                   name="email"
                   type="email"
-                  value={form.email}
-                  onChange={handleChange}
+                  value={
+                    form.email
+                  }
+                  onChange={
+                    handleChange
+                  }
                   placeholder="voce@email.com"
                   required
                   disabled
@@ -1249,8 +1277,12 @@ export default function CheckoutPage() {
                 <Field
                   label="Telefone"
                   name="phone"
-                  value={form.phone}
-                  onChange={handleChange}
+                  value={
+                    form.phone
+                  }
+                  onChange={
+                    handleChange
+                  }
                   placeholder="(11) 99999-9999"
                   maxLength={15}
                   required
@@ -1269,8 +1301,12 @@ export default function CheckoutPage() {
                 <Field
                   label="CEP"
                   name="zipCode"
-                  value={form.zipCode}
-                  onChange={handleChange}
+                  value={
+                    form.zipCode
+                  }
+                  onChange={
+                    handleChange
+                  }
                   placeholder="00000-000"
                   maxLength={9}
                   required
@@ -1279,8 +1315,12 @@ export default function CheckoutPage() {
                 <Field
                   label="Rua"
                   name="street"
-                  value={form.street}
-                  onChange={handleChange}
+                  value={
+                    form.street
+                  }
+                  onChange={
+                    handleChange
+                  }
                   placeholder="Nome da rua"
                   required
                 />
@@ -1288,8 +1328,12 @@ export default function CheckoutPage() {
                 <Field
                   label="Número"
                   name="number"
-                  value={form.number}
-                  onChange={handleChange}
+                  value={
+                    form.number
+                  }
+                  onChange={
+                    handleChange
+                  }
                   placeholder="123"
                   required
                 />
@@ -1297,16 +1341,24 @@ export default function CheckoutPage() {
                 <Field
                   label="Complemento"
                   name="complement"
-                  value={form.complement}
-                  onChange={handleChange}
+                  value={
+                    form.complement
+                  }
+                  onChange={
+                    handleChange
+                  }
                   placeholder="Apartamento, bloco..."
                 />
 
                 <Field
                   label="Bairro"
                   name="neighborhood"
-                  value={form.neighborhood}
-                  onChange={handleChange}
+                  value={
+                    form.neighborhood
+                  }
+                  onChange={
+                    handleChange
+                  }
                   placeholder="Bairro"
                   required
                 />
@@ -1314,8 +1366,12 @@ export default function CheckoutPage() {
                 <Field
                   label="Cidade"
                   name="city"
-                  value={form.city}
-                  onChange={handleChange}
+                  value={
+                    form.city
+                  }
+                  onChange={
+                    handleChange
+                  }
                   placeholder="Cidade"
                   required
                 />
@@ -1323,8 +1379,12 @@ export default function CheckoutPage() {
                 <Field
                   label="Estado"
                   name="state"
-                  value={form.state}
-                  onChange={handleChange}
+                  value={
+                    form.state
+                  }
+                  onChange={
+                    handleChange
+                  }
                   placeholder="SP"
                   maxLength={2}
                   required
@@ -1347,16 +1407,20 @@ export default function CheckoutPage() {
                     </p>
 
                     <div className="rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm text-zinc-300">
-                      {form.zipCode || 'Informe o CEP acima'}
+                      {form.zipCode ||
+                        'Informe o CEP acima'}
                     </div>
                   </div>
 
                   <button
                     type="button"
-                    onClick={handleCalculateShipping}
+                    onClick={
+                      handleCalculateShipping
+                    }
                     disabled={
                       shippingLoading ||
-                      cartItems.length === 0
+                      cartItems.length ===
+                        0
                     }
                     className="inline-flex items-center justify-center gap-2 rounded-2xl border border-zinc-700 bg-zinc-800 px-5 py-3 text-sm font-black text-white transition hover:border-zinc-500 hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50"
                   >
@@ -1371,7 +1435,10 @@ export default function CheckoutPage() {
                       </>
                     ) : (
                       <>
-                        <Truck size={18} />
+                        <Truck
+                          size={18}
+                        />
+
                         Calcular frete
                       </>
                     )}
@@ -1380,18 +1447,24 @@ export default function CheckoutPage() {
 
                 {shippingMessage && (
                   <div className="rounded-2xl border border-zinc-800 bg-zinc-950/60 p-4 text-sm leading-6 text-zinc-400">
-                    {shippingMessage}
+                    {
+                      shippingMessage
+                    }
                   </div>
                 )}
-
-                {shippingOptions.length > 0 && (
+                                {shippingOptions.length >
+                  0 && (
                   <div className="space-y-3">
                     <p className="text-sm font-bold text-zinc-300">
-                      Escolha uma opção de entrega
+                      Escolha uma opção
+                      de entrega
                     </p>
 
                     {shippingOptions.map(
-                      (option, index) => {
+                      (
+                        option,
+                        index
+                      ) => {
                         const companyName =
                           getShippingCompanyName(
                             option
@@ -1415,11 +1488,15 @@ export default function CheckoutPage() {
                           String(
                             selectedShipping?.id
                           ) ===
-                          String(option?.id);
+                          String(
+                            option?.id
+                          );
 
                         return (
                           <button
-                            key={optionId}
+                            key={
+                              optionId
+                            }
                             type="button"
                             onClick={() =>
                               setSelectedShipping(
@@ -1441,16 +1518,23 @@ export default function CheckoutPage() {
 
                                 {companyName && (
                                   <p className="mt-1 text-sm text-zinc-500">
-                                    {companyName}
+                                    {
+                                      companyName
+                                    }
                                   </p>
                                 )}
 
-                                {deadline !== null && (
+                                {deadline !==
+                                  null && (
                                   <p className="mt-2 text-sm text-zinc-300">
-                                    Prazo estimado:{' '}
+                                    Prazo
+                                    estimado:{' '}
                                     <strong>
-                                      {deadline}{' '}
-                                      {deadline === 1
+                                      {
+                                        deadline
+                                      }{' '}
+                                      {deadline ===
+                                      1
                                         ? 'dia útil'
                                         : 'dias úteis'}
                                     </strong>
@@ -1460,7 +1544,8 @@ export default function CheckoutPage() {
 
                               <div className="text-right">
                                 <p className="font-black text-emerald-300">
-                                  {price === 0
+                                  {price ===
+                                  0
                                     ? 'Grátis'
                                     : formatCurrency(
                                         price
@@ -1486,7 +1571,8 @@ export default function CheckoutPage() {
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <p className="font-black text-white">
-                          Frete selecionado
+                          Frete
+                          selecionado
                         </p>
 
                         <p className="mt-1 text-sm text-zinc-300">
@@ -1526,7 +1612,9 @@ export default function CheckoutPage() {
             <div className="border-b border-zinc-800 p-6">
               <div className="flex items-center gap-3">
                 <div className="rounded-2xl bg-zinc-800 p-3 text-zinc-300">
-                  <ShoppingBag size={21} />
+                  <ShoppingBag
+                    size={21}
+                  />
                 </div>
 
                 <div>
@@ -1535,8 +1623,11 @@ export default function CheckoutPage() {
                   </h2>
 
                   <p className="mt-1 text-sm text-zinc-500">
-                    {cartItems.length}{' '}
-                    {cartItems.length === 1
+                    {
+                      cartItems.length
+                    }{' '}
+                    {cartItems.length ===
+                    1
                       ? 'item'
                       : 'itens'}
                   </p>
@@ -1545,7 +1636,8 @@ export default function CheckoutPage() {
             </div>
 
             <div className="max-h-80 space-y-4 overflow-y-auto p-6">
-              {cartItems.length === 0 ? (
+              {cartItems.length ===
+              0 ? (
                 <div className="py-10 text-center">
                   <ShoppingBag
                     size={32}
@@ -1560,25 +1652,32 @@ export default function CheckoutPage() {
                     href="/"
                     className="mt-3 inline-block text-sm text-zinc-400 underline"
                   >
-                    Continuar comprando
+                    Continuar
+                    comprando
                   </Link>
                 </div>
               ) : (
                 cartItems.map(
-                  (item, index) => {
+                  (
+                    item,
+                    index
+                  ) => {
                     const productName =
-                      item?.product?.name ||
+                      item?.product
+                        ?.name ||
                       item?.name ||
                       'Produto Trinity';
 
                     const quantity =
                       Number(
-                        item?.quantity || 1
+                        item?.quantity ||
+                          1
                       );
 
                     const price =
                       Number(
-                        item?.product?.price ??
+                        item?.product
+                          ?.price ??
                           item?.price ??
                           0
                       );
@@ -1591,18 +1690,25 @@ export default function CheckoutPage() {
                       <div
                         key={
                           variation?.id ||
-                          `${item?.product?.id || index}-${index}`
+                          `${
+                            item?.product
+                              ?.id ||
+                            index
+                          }-${index}`
                         }
                         className="flex items-start justify-between gap-4"
                       >
                         <div className="min-w-0">
                           <p className="truncate text-sm font-bold">
-                            {productName}
+                            {
+                              productName
+                            }
                           </p>
 
                           {variation && (
                             <p className="mt-1 text-xs text-zinc-500">
-                              {variation.size || ''}
+                              {variation.size ||
+                                ''}
 
                               {variation.color
                                 ? ` • ${variation.color}`
@@ -1611,13 +1717,17 @@ export default function CheckoutPage() {
                           )}
 
                           <p className="mt-1 text-xs text-zinc-500">
-                            Quantidade: {quantity}
+                            Quantidade:{' '}
+                            {
+                              quantity
+                            }
                           </p>
                         </div>
 
                         <p className="shrink-0 text-sm font-black">
                           {formatCurrency(
-                            price * quantity
+                            price *
+                              quantity
                           )}
                         </p>
                       </div>
@@ -1639,7 +1749,8 @@ export default function CheckoutPage() {
                 label="Frete"
                 value={
                   selectedShipping
-                    ? shippingPrice === 0
+                    ? shippingPrice ===
+                      0
                       ? 'Grátis'
                       : formatCurrency(
                           shippingPrice
@@ -1662,9 +1773,13 @@ export default function CheckoutPage() {
 
               {!selectedShipping && (
                 <div className="rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs leading-5 text-amber-200">
-                  Calcule o frete antes de finalizar.
-                  Enquanto a conta do Melhor Envio não
-                  estiver conectada, a cotação real ficará
+                  Calcule o frete
+                  antes de
+                  finalizar. Enquanto
+                  a conta do Melhor
+                  Envio não estiver
+                  conectada, a
+                  cotação real ficará
                   indisponível.
                 </div>
               )}
@@ -1673,7 +1788,8 @@ export default function CheckoutPage() {
                 type="submit"
                 disabled={
                   loading ||
-                  cartItems.length === 0
+                  cartItems.length ===
+                    0
                 }
                 className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-white px-5 py-4 text-sm font-black text-black transition hover:bg-zinc-200 disabled:cursor-not-allowed disabled:opacity-50"
               >
@@ -1684,7 +1800,8 @@ export default function CheckoutPage() {
                       className="animate-spin"
                     />
 
-                    Preparando pagamento...
+                    Preparando
+                    pagamento...
                   </>
                 ) : (
                   <>
@@ -1692,19 +1809,24 @@ export default function CheckoutPage() {
                       size={18}
                     />
 
-                    Ir para o pagamento
+                    Ir para o
+                    pagamento
                   </>
                 )}
               </button>
 
               <div className="grid gap-3 pt-3">
                 <TrustItem
-                  icon={LockKeyhole}
+                  icon={
+                    LockKeyhole
+                  }
                   text="Pagamento protegido"
                 />
 
                 <TrustItem
-                  icon={ShieldCheck}
+                  icon={
+                    ShieldCheck
+                  }
                   text="Dados tratados com segurança"
                 />
 
@@ -1720,7 +1842,6 @@ export default function CheckoutPage() {
     </main>
   );
 }
-
 // ==========================================
 // COMPONENTES AUXILIARES
 // ==========================================
@@ -1776,11 +1897,21 @@ function Field({
         type={type}
         name={name}
         value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        required={required}
-        maxLength={maxLength}
-        disabled={disabled}
+        onChange={
+          onChange
+        }
+        placeholder={
+          placeholder
+        }
+        required={
+          required
+        }
+        maxLength={
+          maxLength
+        }
+        disabled={
+          disabled
+        }
         className="w-full rounded-2xl border border-zinc-800 bg-zinc-950 px-4 py-3 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-zinc-600 disabled:cursor-not-allowed disabled:opacity-60"
       />
     </label>

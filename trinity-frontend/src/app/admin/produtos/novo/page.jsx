@@ -19,18 +19,6 @@ import { useRouter } from 'next/navigation';
 
 import toast from 'react-hot-toast';
 
-function getStoredToken() {
-  if (typeof window === 'undefined') {
-    return '';
-  }
-
-  return (
-    localStorage.getItem('token') ||
-    localStorage.getItem('authToken') ||
-    ''
-  );
-}
-
 const INITIAL_FORM = {
   name: '',
   price: '',
@@ -221,8 +209,7 @@ export default function NovoProdutoPage() {
       return nextImages;
     });
   }
-
-  async function handleSubmit(
+    async function handleSubmit(
     event
   ) {
     event.preventDefault();
@@ -372,27 +359,17 @@ export default function NovoProdutoPage() {
         );
       }
 
-      const token =
-        getStoredToken();
-
-      if (!token) {
-        throw new Error(
-          'Sua sessão não foi encontrada.'
-        );
-      }
-
       const response =
         await fetch(
           `${apiUrl}/products`,
           {
             method: 'POST',
 
+            credentials: 'include',
+
             headers: {
               'Content-Type':
                 'application/json',
-
-              Authorization:
-                `Bearer ${token}`,
             },
 
             body: JSON.stringify({
@@ -482,7 +459,7 @@ export default function NovoProdutoPage() {
             </h2>
 
             <div className="grid gap-5 md:grid-cols-2">
-              <Field
+                          <Field
                 label="Nome do produto"
                 name="name"
                 value={form.name}
@@ -762,8 +739,7 @@ export default function NovoProdutoPage() {
                 Adicionar imagem
               </button>
             </div>
-
-            <div className="space-y-4">
+                        <div className="space-y-4">
               {images.map(
                 (image, index) => (
                   <div

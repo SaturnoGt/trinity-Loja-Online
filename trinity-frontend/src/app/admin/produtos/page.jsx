@@ -110,7 +110,7 @@ async function readResponse(response) {
 
 export default function ProdutosAdminPage() {
   const {
-    token,
+    isAuthenticated,
     loading: authLoading,
     logout,
   } = useAuth();
@@ -184,8 +184,7 @@ export default function ProdutosAdminPage() {
       controller.abort();
     };
   }, [loadProducts]);
-
-  const filteredProducts = useMemo(() => {
+    const filteredProducts = useMemo(() => {
     const term = search.trim().toLowerCase();
 
     if (!term) {
@@ -236,7 +235,7 @@ export default function ProdutosAdminPage() {
 
   const handleDelete = useCallback(
     async (product) => {
-      if (!token) {
+      if (!isAuthenticated) {
         toast.error(
           'Sua sessão não foi encontrada. Faça login novamente.'
         );
@@ -263,9 +262,9 @@ export default function ProdutosAdminPage() {
           `${API_URL}/products/${product.id}`,
           {
             method: 'DELETE',
+            credentials: 'include',
             headers: {
               Accept: 'application/json',
-              Authorization: `Bearer ${token}`,
             },
           }
         );
@@ -321,7 +320,7 @@ export default function ProdutosAdminPage() {
         setDeletingId(null);
       }
     },
-    [logout, token]
+    [isAuthenticated, logout]
   );
 
   function handleClearSearch() {
@@ -375,64 +374,61 @@ export default function ProdutosAdminPage() {
           label="Sem estoque"
           value={metrics.outOfStock}
         />
-      </section>
-
+        </section>
       <section className="mb-6 flex flex-col gap-4 rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5 md:flex-row md:items-center md:justify-between">
-        <div className="relative w-full max-w-md">
-          <Search
-            size={18}
-            className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"
-          />
+  <div className="relative w-full max-w-md">
+    <Search
+      size={18}
+      className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-zinc-500"
+    />
 
-          <input
-            type="search"
-            value={search}
-            onChange={(event) =>
-              setSearch(event.target.value)
-            }
-            placeholder="Buscar por nome, categoria ou descrição..."
-            aria-label="Buscar produtos"
-            className="w-full rounded-2xl border border-zinc-800 bg-zinc-950 py-3 pl-11 pr-4 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-white"
-          />
-        </div>
+    <input
+      type="search"
+      value={search}
+      onChange={(event) =>
+        setSearch(event.target.value)
+      }
+      placeholder="Buscar por nome, categoria ou descrição..."
+      aria-label="Buscar produtos"
+      className="w-full rounded-2xl border border-zinc-800 bg-zinc-950 py-3 pl-11 pr-4 text-sm text-white outline-none transition placeholder:text-zinc-600 focus:border-white"
+    />
+  </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm text-zinc-500">
-            {filteredProducts.length}{' '}
-            {filteredProducts.length === 1
-              ? 'produto'
-              : 'produtos'}
-          </span>
+  <div className="flex flex-wrap items-center gap-3">
+    <span className="text-sm text-zinc-500">
+      {filteredProducts.length}{' '}
+      {filteredProducts.length === 1
+        ? 'produto'
+        : 'produtos'}
+    </span>
 
-          {search.trim() ? (
-            <button
-              type="button"
-              onClick={handleClearSearch}
-              className="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm font-semibold text-zinc-300 transition hover:border-zinc-500 hover:text-white"
-            >
-              Limpar busca
-            </button>
-          ) : null}
+    {search.trim() ? (
+      <button
+        type="button"
+        onClick={handleClearSearch}
+        className="rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-3 text-sm font-semibold text-zinc-300 transition hover:border-zinc-500 hover:text-white"
+      >
+        Limpar busca
+      </button>
+    ) : null}
 
-          <button
-            type="button"
-            onClick={() => loadProducts()}
-            disabled={loading}
-            className="rounded-xl border border-zinc-700 bg-zinc-800 p-3 text-zinc-300 transition hover:border-white hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-            aria-label="Atualizar produtos"
-            title="Atualizar produtos"
-          >
-            <RefreshCw
-              size={18}
-              className={
-                loading ? 'animate-spin' : ''
-              }
-            />
-          </button>
-        </div>
-      </section>
-
-      {error ? (
+    <button
+      type="button"
+      onClick={() => loadProducts()}
+      disabled={loading}
+      className="rounded-xl border border-zinc-700 bg-zinc-800 p-3 text-zinc-300 transition hover:border-white hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+      aria-label="Atualizar produtos"
+      title="Atualizar produtos"
+    >
+      <RefreshCw
+        size={18}
+        className={loading ? 'animate-spin' : ''}
+      />
+    </button>
+  </div>
+</section>
+  
+         {error ? (
         <ProductsError
           error={error}
           onRetry={() => loadProducts()}
@@ -569,7 +565,7 @@ export default function ProdutosAdminPage() {
                   </div>
                 </article>
               );
-            })}
+           })}
           </div>
         </section>
       )}

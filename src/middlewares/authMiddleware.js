@@ -15,37 +15,15 @@ function authMiddleware(
   next
 ) {
   try {
-    const authHeader =
-      req.headers.authorization;
+    const token =
+      req.cookies?.token;
 
-    if (!authHeader) {
+    if (!token) {
       return res
         .status(401)
         .json({
           message:
-            "Token não informado.",
-        });
-    }
-
-    const [
-      scheme,
-      token,
-    ] =
-      authHeader
-        .trim()
-        .split(/\s+/);
-
-    if (
-      String(scheme)
-        .toLowerCase() !==
-        "bearer" ||
-      !token
-    ) {
-      return res
-        .status(401)
-        .json({
-          message:
-            "Formato do token inválido.",
+            "Token não informado. Autenticação necessária.",
         });
     }
 

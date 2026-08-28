@@ -8,24 +8,45 @@ const {
   requestEmailVerification,
   register,
   login,
+  logout,
   getProfile,
   updateProfile,
   requestPasswordReset,
   resetPassword,
-} = require("../controllers/authController");
+} = require(
+  "../controllers/authController"
+);
 
 const router = express.Router();
 
-// Cadastro e login
+// ==========================================
+// CADASTRO E LOGIN
+// ==========================================
+
 router.post(
   "/request-email-verification",
   requestEmailVerification
 );
 
-router.post("/register", register);
-router.post("/login", login);
+router.post(
+  "/register",
+  register
+);
 
-// Recuperação de senha
+router.post(
+  "/login",
+  login
+);
+
+router.post(
+  "/logout",
+  logout
+);
+
+// ==========================================
+// RECUPERAÇÃO DE SENHA
+// ==========================================
+
 router.post(
   "/request-password-reset",
   requestPasswordReset
@@ -36,7 +57,10 @@ router.post(
   resetPassword
 );
 
-// Perfil protegido
+// ==========================================
+// PERFIL PROTEGIDO
+// ==========================================
+
 router.get(
   "/profile",
   authMiddleware,

@@ -3,6 +3,15 @@ const jwt = require("jsonwebtoken");
 
 const prisma = require("../config/prisma");
 const transporter = require("../config/mail");
+
+const JWT_SECRET = process.env.JWT_SECRET;
+
+if (!JWT_SECRET) {
+  throw new Error(
+    "JWT_SECRET não foi configurado."
+  );
+}
+
 function normalizeEmail(value) {
   return String(value || "")
     .trim()
@@ -41,18 +50,23 @@ const profileSelect = {
   createdAt: true,
   updatedAt: true,
 };
-
 // ==========================================
 // 1. SOLICITAR CÓDIGO DE VERIFICAÇÃO
 // ==========================================
 
-const requestEmailVerification = async (req, res) => {
+const requestEmailVerification = async (
+  req,
+  res
+) => {
   try {
-    const email = normalizeEmail(req.body.email);
+    const email = normalizeEmail(
+      req.body.email
+    );
 
     if (!email) {
       return res.status(400).json({
-        error: "O campo e-mail é obrigatório.",
+        error:
+          "O campo e-mail é obrigatório.",
       });
     }
 
@@ -137,7 +151,6 @@ const requestEmailVerification = async (req, res) => {
     });
   }
 };
-
 // ==========================================
 // 2. REGISTRAR USUÁRIO
 // ==========================================
@@ -148,7 +161,9 @@ const register = async (req, res) => {
       req.body.name || ""
     ).trim();
 
-    const email = normalizeEmail(req.body.email);
+    const email = normalizeEmail(
+      req.body.email
+    );
 
     const password = String(
       req.body.password || ""
@@ -158,7 +173,12 @@ const register = async (req, res) => {
       req.body.code || ""
     ).trim();
 
-    if (!name || !email || !password || !code) {
+    if (
+      !name ||
+      !email ||
+      !password ||
+      !code
+    ) {
       return res.status(400).json({
         error:
           "Nome, e-mail, senha e código de verificação são obrigatórios.",
@@ -208,16 +228,21 @@ const register = async (req, res) => {
     }
 
     if (
-      String(verification.code).trim() !== code
+      String(
+        verification.code
+      ).trim() !== code
     ) {
       return res.status(400).json({
-        error: "Código incorreto.",
+        error:
+          "Código incorreto.",
       });
     }
 
     if (
       new Date() >
-      new Date(verification.expiresAt)
+      new Date(
+        verification.expiresAt
+      )
     ) {
       await prisma.emailVerification.delete({
         where: {
@@ -232,7 +257,10 @@ const register = async (req, res) => {
     }
 
     const hashedPassword =
-      await bcrypt.hash(password, 10);
+      await bcrypt.hash(
+        password,
+        10
+      );
 
     const newUser =
       await prisma.user.create({
@@ -273,14 +301,15 @@ const register = async (req, res) => {
     });
   }
 };
-
 // ==========================================
 // 3. LOGIN
 // ==========================================
 
 const login = async (req, res) => {
   try {
-    const email = normalizeEmail(req.body.email);
+    const email = normalizeEmail(
+      req.body.email
+    );
 
     const password = String(
       req.body.password || ""
@@ -302,7 +331,8 @@ const login = async (req, res) => {
 
     if (!user) {
       return res.status(401).json({
-        error: "Credenciais inválidas.",
+        error:
+          "Credenciais inválidas.",
       });
     }
 
@@ -314,7 +344,8 @@ const login = async (req, res) => {
 
     if (!passwordMatch) {
       return res.status(401).json({
-        error: "Credenciais inválidas.",
+        error:
+          "Credenciais inválidas.",
       });
     }
 
@@ -324,8 +355,7 @@ const login = async (req, res) => {
         email: user.email,
         role: user.role,
       },
-      process.env.JWT_SECRET ||
-        "chave_secreta_padrao_trinity",
+      JWT_SECRET,
       {
         expiresIn:
           process.env.JWT_EXPIRES_IN ||
@@ -333,8 +363,25 @@ const login = async (req, res) => {
       }
     );
 
-    return res.status(200).json({
+    const isProduction =
+      process.env.NODE_ENV ===
+      "production";
+
+    res.cookie(
+      "token",
       token,
+      {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: isProduction
+          ? "none"
+          : "lax",
+        maxAge:
+          15 * 60 * 1000,
+      }
+    );
+
+    return res.status(200).json({
       user: {
         id: user.id,
         name: user.name,
@@ -354,7 +401,6 @@ const login = async (req, res) => {
     });
   }
 };
-
 // ==========================================
 // 4. BUSCAR PERFIL
 // ==========================================
@@ -371,11 +417,14 @@ const getProfile = async (req, res) => {
 
     if (!user) {
       return res.status(404).json({
-        error: "Usuário não encontrado.",
+        error:
+          "Usuário não encontrado.",
       });
     }
 
-    return res.status(200).json(user);
+    return res.status(200).json(
+      user
+    );
   } catch (error) {
     console.error(
       "Erro ao buscar perfil:",
@@ -393,7 +442,10 @@ const getProfile = async (req, res) => {
 // 5. ATUALIZAR PERFIL
 // ==========================================
 
-const updateProfile = async (req, res) => {
+const updateProfile = async (
+  req,
+  res
+) => {
   try {
     const {
       name,
@@ -411,7 +463,10 @@ const updateProfile = async (req, res) => {
     } = req.body;
 
     const normalizedCpf = cpf
-      ? String(cpf).replace(/\D/g, "")
+      ? String(cpf).replace(
+          /\D/g,
+          ""
+        )
       : null;
 
     if (
@@ -431,8 +486,9 @@ const updateProfile = async (req, res) => {
         },
         data: {
           name:
-            String(name || "").trim() ||
-            null,
+            String(
+              name || ""
+            ).trim() || null,
 
           phone: phone
             ? String(phone).replace(
@@ -460,12 +516,14 @@ const updateProfile = async (req, res) => {
             : null,
 
           street:
-            String(street || "").trim() ||
-            null,
+            String(
+              street || ""
+            ).trim() || null,
 
           number:
-            String(number || "").trim() ||
-            null,
+            String(
+              number || ""
+            ).trim() || null,
 
           complement:
             String(
@@ -478,13 +536,17 @@ const updateProfile = async (req, res) => {
             ).trim() || null,
 
           city:
-            String(city || "").trim() ||
-            null,
+            String(
+              city || ""
+            ).trim() || null,
 
           state:
-            String(state || "")
+            String(
+              state || ""
+            )
               .trim()
-              .toUpperCase() || null,
+              .toUpperCase() ||
+            null,
         },
         select: profileSelect,
       });
@@ -500,7 +562,9 @@ const updateProfile = async (req, res) => {
       error
     );
 
-    if (error?.code === "P2002") {
+    if (
+      error?.code === "P2002"
+    ) {
       return res.status(409).json({
         error:
           "Este CPF já está sendo utilizado por outra conta.",
@@ -513,7 +577,6 @@ const updateProfile = async (req, res) => {
     });
   }
 };
-
 // ==========================================
 // 6. SOLICITAR REDEFINIÇÃO DE SENHA
 // ==========================================
@@ -523,11 +586,14 @@ const requestPasswordReset = async (
   res
 ) => {
   try {
-    const email = normalizeEmail(req.body.email);
+    const email = normalizeEmail(
+      req.body.email
+    );
 
     if (!email) {
       return res.status(400).json({
-        error: "O e-mail é obrigatório.",
+        error:
+          "O e-mail é obrigatório.",
       });
     }
 
@@ -612,14 +678,18 @@ const requestPasswordReset = async (
     });
   }
 };
-
 // ==========================================
 // 7. REDEFINIR SENHA
 // ==========================================
 
-const resetPassword = async (req, res) => {
+const resetPassword = async (
+  req,
+  res
+) => {
   try {
-    const email = normalizeEmail(req.body.email);
+    const email = normalizeEmail(
+      req.body.email
+    );
 
     const code = String(
       req.body.code || ""
@@ -629,7 +699,11 @@ const resetPassword = async (req, res) => {
       req.body.password || ""
     );
 
-    if (!email || !code || !password) {
+    if (
+      !email ||
+      !code ||
+      !password
+    ) {
       return res.status(400).json({
         error:
           "E-mail, código e nova senha são obrigatórios.",
@@ -652,7 +726,8 @@ const resetPassword = async (req, res) => {
 
     if (!user) {
       return res.status(404).json({
-        error: "Usuário não encontrado.",
+        error:
+          "Usuário não encontrado.",
       });
     }
 
@@ -671,16 +746,21 @@ const resetPassword = async (req, res) => {
     }
 
     if (
-      String(verification.code).trim() !== code
+      String(
+        verification.code
+      ).trim() !== code
     ) {
       return res.status(400).json({
-        error: "Código inválido.",
+        error:
+          "Código inválido.",
       });
     }
 
     if (
       new Date() >
-      new Date(verification.expiresAt)
+      new Date(
+        verification.expiresAt
+      )
     ) {
       await prisma.emailVerification.delete({
         where: {
@@ -695,14 +775,18 @@ const resetPassword = async (req, res) => {
     }
 
     const hashedPassword =
-      await bcrypt.hash(password, 10);
+      await bcrypt.hash(
+        password,
+        10
+      );
 
     await prisma.user.update({
       where: {
         email,
       },
       data: {
-        password: hashedPassword,
+        password:
+          hashedPassword,
       },
     });
 
@@ -728,6 +812,44 @@ const resetPassword = async (req, res) => {
     });
   }
 };
+// ==========================================
+// 8. LOGOUT
+// ==========================================
+
+const logout = async (req, res) => {
+  try {
+    const isProduction =
+      process.env.NODE_ENV ===
+      "production";
+
+    res.clearCookie(
+      "token",
+      {
+        httpOnly: true,
+        secure: isProduction,
+        sameSite: isProduction
+          ? "none"
+          : "lax",
+        path: "/",
+      }
+    );
+
+    return res.status(200).json({
+      message:
+        "Logout realizado com sucesso.",
+    });
+  } catch (error) {
+    console.error(
+      "Erro ao realizar logout:",
+      error
+    );
+
+    return res.status(500).json({
+      error:
+        "Erro interno ao realizar logout.",
+    });
+  }
+};
 
 // ==========================================
 // EXPORTAÇÕES
@@ -737,6 +859,7 @@ module.exports = {
   requestEmailVerification,
   register,
   login,
+  logout,
   getProfile,
   updateProfile,
   requestPasswordReset,

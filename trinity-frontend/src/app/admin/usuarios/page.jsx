@@ -131,10 +131,9 @@ async function readResponse(response) {
     );
   }
 }
-
 export default function UsuariosAdminPage() {
   const {
-    token,
+    isAuthenticated,
     user: currentUser,
     loading: authLoading,
     logout,
@@ -158,7 +157,7 @@ export default function UsuariosAdminPage() {
         return;
       }
 
-      if (!token) {
+      if (!isAuthenticated) {
         setUsers([]);
         setError(
           'Sua sessão não foi encontrada. Faça login novamente.'
@@ -175,9 +174,9 @@ export default function UsuariosAdminPage() {
           `${API_URL}/users`,
           {
             method: 'GET',
+            credentials: 'include',
             headers: {
               Accept: 'application/json',
-              Authorization: `Bearer ${token}`,
             },
             cache: 'no-store',
             signal,
@@ -233,7 +232,7 @@ export default function UsuariosAdminPage() {
         }
       }
     },
-    [authLoading, logout, token]
+    [authLoading, isAuthenticated, logout]
   );
 
   useEffect(() => {
@@ -309,8 +308,7 @@ export default function UsuariosAdminPage() {
     ) {
       return;
     }
-
-    if (!token) {
+        if (!isAuthenticated) {
       toast.error(
         'Sua sessão não foi encontrada. Faça login novamente.'
       );
@@ -362,11 +360,11 @@ export default function UsuariosAdminPage() {
         )}/role`,
         {
           method: 'PATCH',
+          credentials: 'include',
           headers: {
             Accept: 'application/json',
             'Content-Type':
               'application/json',
-            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             role: newRole,
@@ -452,7 +450,7 @@ export default function UsuariosAdminPage() {
       return;
     }
 
-    if (!token) {
+    if (!isAuthenticated) {
       toast.error(
         'Sua sessão não foi encontrada. Faça login novamente.'
       );
@@ -487,9 +485,9 @@ export default function UsuariosAdminPage() {
         )}`,
         {
           method: 'DELETE',
+          credentials: 'include',
           headers: {
             Accept: 'application/json',
-            Authorization: `Bearer ${token}`,
           },
         }
       );
@@ -553,7 +551,7 @@ export default function UsuariosAdminPage() {
   return (
     <div>
       <header className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-        <div>
+                <div>
           <p className="mb-2 text-sm font-semibold uppercase tracking-[0.25em] text-zinc-500">
             Administração
           </p>
@@ -798,7 +796,7 @@ export default function UsuariosAdminPage() {
                         className="inline-flex items-center justify-center rounded-xl border border-zinc-700 bg-zinc-800 p-3 text-zinc-300 transition hover:border-white hover:text-white"
                         aria-label={`Ver detalhes de ${
                           selectedUser.email ||
-                          selectedUser.name ||
+                                                    selectedUser.name ||
                           'usuário'
                         }`}
                         title="Ver detalhes"
@@ -1037,3 +1035,4 @@ function UsersLoading() {
     </div>
   );
 }
+

@@ -20,18 +20,6 @@ import {
 
 import toast from 'react-hot-toast';
 
-function getStoredToken() {
-  if (typeof window === 'undefined') {
-    return '';
-  }
-
-  return (
-    localStorage.getItem('token') ||
-    localStorage.getItem('authToken') ||
-    ''
-  );
-}
-
 export default function EditarProdutoPage() {
   const params = useParams();
   const router = useRouter();
@@ -170,8 +158,7 @@ export default function EditarProdutoPage() {
       })
     );
   }
-
-  async function handleSubmit(
+    async function handleSubmit(
     event
   ) {
     event.preventDefault();
@@ -278,7 +265,8 @@ export default function EditarProdutoPage() {
         return;
       }
     }
-        try {
+
+    try {
       setSaving(true);
 
       const apiUrl =
@@ -291,27 +279,17 @@ export default function EditarProdutoPage() {
         );
       }
 
-      const token =
-        getStoredToken();
-
-      if (!token) {
-        throw new Error(
-          'Sua sessão não foi encontrada.'
-        );
-      }
-
       const response =
         await fetch(
           `${apiUrl}/products/${productId}/basic`,
           {
             method: 'PATCH',
 
+            credentials: 'include',
+
             headers: {
               'Content-Type':
                 'application/json',
-
-              Authorization:
-                `Bearer ${token}`,
             },
 
             body:
@@ -410,7 +388,7 @@ export default function EditarProdutoPage() {
             <div className="rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-sm font-bold text-red-300">
               {error}
             </div>
-          </div>
+                      </div>
         ) : (
           <form
             onSubmit={
@@ -520,7 +498,8 @@ export default function EditarProdutoPage() {
                 />
               </div>
             </section>
-                        <section className="border-t border-zinc-800 pt-8">
+
+            <section className="border-t border-zinc-800 pt-8">
               <div className="mb-5">
                 <h2 className="text-lg font-black text-white">
                   Dados para frete
@@ -639,7 +618,6 @@ export default function EditarProdutoPage() {
     </div>
   );
 }
-
 function Field({
   label,
   name,

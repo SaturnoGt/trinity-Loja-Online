@@ -1,8 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import {
+  useMemo,
+  useState,
+} from "react";
+
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+
+import {
+  useRouter,
+} from "next/navigation";
 
 import {
   CreditCard,
@@ -13,8 +20,13 @@ import {
 
 import toast from "react-hot-toast";
 
-import { useAuth } from "@/context/AuthContext";
-import { useCart } from "@/context/CartContext";
+import {
+  useAuth,
+} from "@/context/AuthContext";
+
+import {
+  useCart,
+} from "@/context/CartContext";
 
 function formatPrice(value) {
   const price = Number(value);
@@ -23,14 +35,23 @@ function formatPrice(value) {
     return "R$ 0,00";
   }
 
-  return price.toLocaleString("pt-BR", {
-    style: "currency",
-    currency: "BRL",
-  });
+  return price.toLocaleString(
+    "pt-BR",
+    {
+      style: "currency",
+      currency: "BRL",
+    }
+  );
 }
 
-function getProductImage(product) {
-  if (!Array.isArray(product?.images)) {
+function getProductImage(
+  product
+) {
+  if (
+    !Array.isArray(
+      product?.images
+    )
+  ) {
     return "/produtos/frente.jpg.jpeg";
   }
 
@@ -55,63 +76,76 @@ export default function CarrinhoPage() {
     removeFromCart,
   } = useCart();
 
-  const { token } = useAuth();
+  const {
+    isAuthenticated,
+  } = useAuth();
 
-  const [checkingOut, setCheckingOut] =
-    useState(false);
+  const [
+    checkingOut,
+    setCheckingOut,
+  ] = useState(false);
 
   const cartItems =
     Array.isArray(cart)
       ? cart
       : [];
 
-  const subtotal = useMemo(() => {
-    return cartItems.reduce(
-      (
-        accumulator,
-        item
-      ) => {
-        const price =
-          Number(
-            item?.product?.price
+  const subtotal = useMemo(
+    () => {
+      return cartItems.reduce(
+        (
+          accumulator,
+          item
+        ) => {
+          const price =
+            Number(
+              item?.product
+                ?.price
+            );
+
+          const quantity =
+            Number(
+              item?.quantity
+            );
+
+          if (
+            !Number.isFinite(
+              price
+            ) ||
+            !Number.isFinite(
+              quantity
+            ) ||
+            price < 0 ||
+            quantity <= 0
+          ) {
+            return accumulator;
+          }
+
+          return (
+            accumulator +
+            price * quantity
           );
-
-        const quantity =
-          Number(
-            item?.quantity
-          );
-
-        if (
-          !Number.isFinite(price) ||
-          !Number.isFinite(
-            quantity
-          ) ||
-          price < 0 ||
-          quantity <= 0
-        ) {
-          return accumulator;
-        }
-
-        return (
-          accumulator +
-          price * quantity
-        );
-      },
-      0
-    );
-  }, [cartItems]);
+        },
+        0
+      );
+    },
+    [cartItems]
+  );
 
   function handleCheckout() {
     if (checkingOut) {
       return;
     }
 
-    if (!token) {
+    if (!isAuthenticated) {
       toast.error(
         "Você precisa entrar na sua conta para finalizar a compra."
       );
 
-      router.push("/login");
+      router.push(
+        "/login"
+      );
+
       return;
     }
 
@@ -143,7 +177,8 @@ export default function CarrinhoPage() {
 
           const unitPrice =
             Number(
-              item?.product?.price
+              item?.product
+                ?.price
             );
 
           return (
@@ -207,12 +242,14 @@ export default function CarrinhoPage() {
           </h1>
 
           <p className="mt-3 text-zinc-400">
-            Revise os produtos antes de seguir
-            para o checkout.
+            Revise os produtos antes
+            de seguir para o
+            checkout.
           </p>
         </header>
 
-        {cartItems.length === 0 ? (
+        {cartItems.length ===
+        0 ? (
           <section className="rounded-3xl border border-zinc-800 bg-zinc-900/70 p-8 text-center sm:p-12">
             <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-800 text-zinc-300">
               <ShoppingBag
@@ -222,18 +259,22 @@ export default function CarrinhoPage() {
             </div>
 
             <h2 className="mt-6 text-2xl font-bold">
-              Seu carrinho está vazio
+              Seu carrinho está
+              vazio
             </h2>
 
             <p className="mt-3 text-zinc-500">
-              Escolha um produto para continuar
-              sua compra.
+              Escolha um produto
+              para continuar sua
+              compra.
             </p>
 
             <button
               type="button"
               onClick={() =>
-                router.push("/#produtos")
+                router.push(
+                  "/#produtos"
+                )
               }
               className="mt-7 rounded-xl bg-white px-6 py-3 font-bold text-black transition hover:bg-zinc-200"
             >
@@ -246,114 +287,119 @@ export default function CarrinhoPage() {
               aria-label="Produtos no carrinho"
               className="space-y-5"
             >
-              {cartItems.map((item) => {
-                const product =
-                  item?.product || {};
+              {cartItems.map(
+                (item) => {
+                  const product =
+                    item?.product ||
+                    {};
 
-                const variation =
-                  item?.variation || null;
+                  const variation =
+                    item?.variation ||
+                    null;
 
-                const quantity =
-                  Number(
-                    item?.quantity
-                  );
+                  const quantity =
+                    Number(
+                      item?.quantity
+                    );
 
-                const itemTotal =
-                  Number(
-                    product.price
-                  ) * quantity;
+                  const itemTotal =
+                    Number(
+                      product.price
+                    ) * quantity;
 
-                const image =
-                  getProductImage(
-                    product
-                  );
+                  const image =
+                    getProductImage(
+                      product
+                    );
 
-                return (
-                  <article
-                    key={`${product.id}-${variation?.id || "default"}`}
-                    className="flex flex-col gap-5 rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5 transition hover:border-zinc-600 sm:flex-row sm:items-center"
-                  >
-                    <Image
-                      src={image}
-                      alt={
-                        product.name ||
-                        "Produto Trinity"
-                      }
-                      width={128}
-                      height={128}
-                      sizes="128px"
-                      className="aspect-square h-32 w-32 rounded-2xl object-cover"
-                    />
-
-                    <div className="min-w-0 flex-1">
-                      <h2 className="break-words text-xl font-bold">
-                        {product.name ||
-                          "Produto"}
-                      </h2>
-
-                      {variation && (
-                        <p className="mt-2 text-zinc-400">
-                          {variation.size ||
-                            "Tamanho único"}
-
-                          {variation.color
-                            ? ` • ${variation.color}`
-                            : ""}
-                        </p>
-                      )}
-
-                      <p className="mt-2 text-sm text-zinc-500">
-                        Quantidade:{" "}
-                        {Number.isFinite(
-                          quantity
-                        )
-                          ? quantity
-                          : 0}
-                      </p>
-
-                      <p className="mt-1 text-sm text-zinc-500">
-                        Valor unitário:{" "}
-                        {formatPrice(
-                          product.price
-                        )}
-                      </p>
-                    </div>
-
-                    <div className="sm:text-right">
-                      <p className="text-xl font-black">
-                        {formatPrice(
-                          itemTotal
-                        )}
-                      </p>
-
-                      <button
-                        type="button"
-                        disabled={
-                          checkingOut
-                        }
-                        onClick={() =>
-                          removeFromCart(
-                            product.id,
-                            variation?.id
-                          )
-                        }
-                        aria-label={`Remover ${
+                  return (
+                    <article
+                      key={`${product.id}-${variation?.id || "default"}`}
+                      className="flex flex-col gap-5 rounded-3xl border border-zinc-800 bg-zinc-900/70 p-5 transition hover:border-zinc-600 sm:flex-row sm:items-center"
+                    >
+                      <Image
+                        src={image}
+                        alt={
                           product.name ||
-                          "produto"
-                        } do carrinho`}
-                        className="mt-4 inline-flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 transition hover:border-red-500 hover:bg-red-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
-                      >
-                        <Trash2
-                          size={16}
-                          aria-hidden="true"
-                        />
+                          "Produto Trinity"
+                        }
+                        width={128}
+                        height={128}
+                        sizes="128px"
+                        className="aspect-square h-32 w-32 rounded-2xl object-cover"
+                      />
 
-                        Remover
-                      </button>
-                    </div>
-                  </article>
-                );
-              })}
+                      <div className="min-w-0 flex-1">
+                        <h2 className="break-words text-xl font-bold">
+                          {product.name ||
+                            "Produto"}
+                        </h2>
+
+                        {variation && (
+                          <p className="mt-2 text-zinc-400">
+                            {variation.size ||
+                              "Tamanho único"}
+
+                            {variation.color
+                              ? ` • ${variation.color}`
+                              : ""}
+                          </p>
+                        )}
+
+                        <p className="mt-2 text-sm text-zinc-500">
+                          Quantidade:{" "}
+                          {Number.isFinite(
+                            quantity
+                          )
+                            ? quantity
+                            : 0}
+                        </p>
+
+                        <p className="mt-1 text-sm text-zinc-500">
+                          Valor
+                          unitário:{" "}
+                          {formatPrice(
+                            product.price
+                          )}
+                        </p>
+                      </div>
+
+                      <div className="sm:text-right">
+                        <p className="text-xl font-black">
+                          {formatPrice(
+                            itemTotal
+                          )}
+                        </p>
+
+                        <button
+                          type="button"
+                          disabled={
+                            checkingOut
+                          }
+                          onClick={() =>
+                            removeFromCart(
+                              product.id,
+                              variation?.id
+                            )
+                          }
+                          aria-label={`Remover ${
+                            product.name ||
+                            "produto"
+                          } do carrinho`}
+                          className="mt-4 inline-flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2 text-sm font-semibold text-red-400 transition hover:border-red-500 hover:bg-red-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          <Trash2
+                            size={16}
+                            aria-hidden="true"
+                          />
+
+                          Remover
+                        </button>
+                      </div>
+                    </article>
+                  );
+                }
+              )}
             </section>
                         <aside className="h-fit rounded-3xl border border-zinc-800 bg-zinc-900/70 p-7 lg:sticky lg:top-24">
               <h2 className="text-2xl font-bold">
@@ -379,7 +425,8 @@ export default function CarrinhoPage() {
                   </span>
 
                   <span className="font-semibold text-zinc-300">
-                    Calcular no checkout
+                    Calcular no
+                    checkout
                   </span>
                 </div>
               </div>
@@ -399,8 +446,10 @@ export default function CarrinhoPage() {
               </div>
 
               <p className="mt-2 text-xs leading-5 text-zinc-500">
-                O valor final será calculado depois
-                da escolha do frete no checkout.
+                O valor final será
+                calculado depois da
+                escolha do frete no
+                checkout.
               </p>
 
               <button
@@ -410,7 +459,8 @@ export default function CarrinhoPage() {
                 }
                 disabled={
                   checkingOut ||
-                  cartItems.length === 0 ||
+                  cartItems.length ===
+                    0 ||
                   subtotal <= 0
                 }
                 aria-busy={
@@ -426,7 +476,8 @@ export default function CarrinhoPage() {
                       className="animate-spin"
                     />
 
-                    Abrindo checkout...
+                    Abrindo
+                    checkout...
                   </>
                 ) : (
                   <>
@@ -435,14 +486,17 @@ export default function CarrinhoPage() {
                       aria-hidden="true"
                     />
 
-                    Ir para o checkout
+                    Ir para o
+                    checkout
                   </>
                 )}
               </button>
 
               <p className="mt-4 text-center text-xs leading-5 text-zinc-500">
-                No próximo passo você confirma
-                endereço, entrega e pagamento.
+                No próximo passo
+                você confirma
+                endereço, entrega e
+                pagamento.
               </p>
             </aside>
           </div>

@@ -165,7 +165,6 @@ function normalizeOrders(data) {
 
   return [];
 }
-
 function getItemsCount(order) {
   if (!Array.isArray(order?.items)) {
     return 0;
@@ -183,7 +182,7 @@ function getItemsCount(order) {
 
 export default function PedidosAdminPage() {
   const {
-    token,
+    isAuthenticated,
     loading: authLoading,
     logout,
   } = useAuth();
@@ -202,7 +201,7 @@ export default function PedidosAdminPage() {
         return;
       }
 
-      if (!token) {
+      if (!isAuthenticated) {
         setOrders([]);
         setError(
           'Sua sessão não foi encontrada. Faça login novamente.'
@@ -219,9 +218,9 @@ export default function PedidosAdminPage() {
           `${API_URL}/orders/admin`,
           {
             method: 'GET',
+            credentials: 'include',
             headers: {
               Accept: 'application/json',
-              Authorization: `Bearer ${token}`,
             },
             cache: 'no-store',
             signal,
@@ -277,7 +276,7 @@ export default function PedidosAdminPage() {
         }
       }
     },
-    [authLoading, logout, token]
+    [authLoading, isAuthenticated, logout]
   );
 
   useEffect(() => {
@@ -377,8 +376,7 @@ export default function PedidosAdminPage() {
       />
     );
   }
-
-  return (
+    return (
     <div>
       <header className="mb-8 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
@@ -532,74 +530,74 @@ function OrderRow({ order }) {
   const orderId = String(order?.id || '');
   const itemsCount = getItemsCount(order);
 
-  return (
-    <Link
-      href={`/admin/pedidos/${encodeURIComponent(
-        orderId
-      )}`}
-      className="group grid gap-5 px-6 py-5 transition hover:bg-zinc-800/50 lg:grid-cols-[1.1fr_1.4fr_1fr_1fr_auto] lg:items-center"
-    >
-      <div>
-        <p className="font-mono text-sm font-bold text-white">
-          #{orderId.slice(0, 8) || 'Sem código'}
-        </p>
+ return (
+  <Link
+    href={`/admin/pedidos/${encodeURIComponent(
+      orderId
+    )}`}
+    className="group grid gap-5 px-6 py-5 transition hover:bg-zinc-800/50 lg:grid-cols-[1.1fr_1.4fr_1fr_1fr_auto] lg:items-center"
+  >
+    <div>
+      <p className="font-mono text-sm font-bold text-white">
+        #{orderId.slice(0, 8) || 'Sem código'}
+      </p>
 
-        <p className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
-          <CalendarDays size={14} />
-          {formatDate(order?.createdAt)}
-        </p>
-      </div>
+      <p className="mt-2 flex items-center gap-2 text-xs text-zinc-500">
+        <CalendarDays size={14} />
+        {formatDate(order?.createdAt)}
+      </p>
+    </div>
 
-      <div className="min-w-0">
-        <p className="flex items-center gap-2 font-bold text-zinc-200">
-          <User
-            size={16}
-            className="shrink-0 text-zinc-500"
-          />
+    <div className="min-w-0">
+      <p className="flex items-center gap-2 font-bold text-zinc-200">
+        <User
+          size={16}
+          className="shrink-0 text-zinc-500"
+        />
 
-          <span className="truncate">
-            {order?.user?.name ||
-              'Cliente não informado'}
-          </span>
-        </p>
-
-        <p className="mt-2 truncate text-sm text-zinc-500">
-          {order?.user?.email ||
-            'E-mail não informado'}
-        </p>
-      </div>
-
-      <div>
-        <span
-          className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-bold ${status.className}`}
-        >
-          {status.label}
+        <span className="truncate">
+          {order?.user?.name ||
+            'Cliente não informado'}
         </span>
+      </p>
 
-        <p className="mt-2 text-xs text-zinc-500">
-          {itemsCount}{' '}
-          {itemsCount === 1 ? 'item' : 'itens'}
+      <p className="mt-2 truncate text-sm text-zinc-500">
+        {order?.user?.email ||
+          'E-mail não informado'}
+      </p>
+    </div>
+
+    <div>
+      <span
+        className={`inline-flex rounded-full border px-3 py-1.5 text-xs font-bold ${status.className}`}
+      >
+        {status.label}
+      </span>
+
+      <p className="mt-2 text-xs text-zinc-500">
+        {itemsCount}{' '}
+        {itemsCount === 1 ? 'item' : 'itens'}
+      </p>
+    </div>
+
+    <div>
+      <p className="text-lg font-black text-white">
+        {formatPrice(order?.total)}
+      </p>
+
+      {order?.paymentId ? (
+        <p className="mt-2 max-w-48 truncate text-xs text-zinc-500">
+          Pagamento: {order.paymentId}
         </p>
-      </div>
+      ) : null}
+    </div>
 
-      <div>
-        <p className="text-lg font-black text-white">
-          {formatPrice(order?.total)}
-        </p>
-
-        {order?.paymentId ? (
-          <p className="mt-2 max-w-48 truncate text-xs text-zinc-500">
-            Pagamento: {order.paymentId}
-          </p>
-        ) : null}
-      </div>
-
-      <ChevronRight
-        size={21}
-        className="hidden text-zinc-600 transition group-hover:translate-x-1 group-hover:text-white lg:block"
-      />
-    </Link>
-  );
+    <ChevronRight
+      size={21}
+      className="hidden text-zinc-600 transition group-hover:translate-x-1 group-hover:text-white lg:block"
+    />
+  </Link>
+);
 }
 
 function StatisticCard({

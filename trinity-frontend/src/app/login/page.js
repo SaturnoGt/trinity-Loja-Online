@@ -21,7 +21,9 @@ const API_URL = (
 ).replace(/\/$/, '');
 
 function isValidEmail(value) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
+    value
+  );
 }
 
 async function readResponse(response) {
@@ -44,11 +46,19 @@ export default function LoginPage() {
   const router = useRouter();
   const { login } = useAuth();
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] =
+  const [email, setEmail] =
+    useState('');
+
+  const [password, setPassword] =
+    useState('');
+
+  const [
+    showPassword,
+    setShowPassword,
+  ] = useState(false);
+
+  const [loading, setLoading] =
     useState(false);
-  const [loading, setLoading] = useState(false);
 
   async function handleLogin(event) {
     event.preventDefault();
@@ -61,13 +71,26 @@ export default function LoginPage() {
       .trim()
       .toLowerCase();
 
-    if (!normalizedEmail || !password) {
-      toast.error('Preencha e-mail e senha.');
+    if (
+      !normalizedEmail ||
+      !password
+    ) {
+      toast.error(
+        'Preencha e-mail e senha.'
+      );
+
       return;
     }
 
-    if (!isValidEmail(normalizedEmail)) {
-      toast.error('Informe um e-mail válido.');
+    if (
+      !isValidEmail(
+        normalizedEmail
+      )
+    ) {
+      toast.error(
+        'Informe um e-mail válido.'
+      );
+
       return;
     }
 
@@ -78,9 +101,12 @@ export default function LoginPage() {
         `${API_URL}/auth/login`,
         {
           method: 'POST',
+          credentials: 'include',
           headers: {
-            Accept: 'application/json',
-            'Content-Type': 'application/json',
+            Accept:
+              'application/json',
+            'Content-Type':
+              'application/json',
           },
           body: JSON.stringify({
             email: normalizedEmail,
@@ -89,7 +115,10 @@ export default function LoginPage() {
         }
       );
 
-      const data = await readResponse(response);
+      const data =
+        await readResponse(
+          response
+        );
 
       if (!response.ok) {
         throw new Error(
@@ -99,17 +128,17 @@ export default function LoginPage() {
         );
       }
 
-      const token =
-        data?.token ||
-        data?.accessToken;
-
-      if (!token) {
+      if (
+        !data?.user ||
+        typeof data.user !==
+          'object'
+      ) {
         throw new Error(
-          'A API não retornou o token de acesso.'
+          'A API não retornou os dados do usuário.'
         );
       }
 
-      await login(token);
+      await login(data.user);
 
       toast.success(
         data?.message ||
@@ -150,7 +179,8 @@ export default function LoginPage() {
           </h1>
 
           <p className="mt-3 text-sm leading-6 text-zinc-400">
-            Acesse seus pedidos, favoritos e dados da
+            Acesse seus pedidos,
+            favoritos e dados da
             conta.
           </p>
         </div>
@@ -179,8 +209,13 @@ export default function LoginPage() {
                 name="email"
                 type="email"
                 value={email}
-                onChange={(event) =>
-                  setEmail(event.target.value)
+                onChange={(
+                  event
+                ) =>
+                  setEmail(
+                    event.target
+                      .value
+                  )
                 }
                 placeholder="voce@email.com"
                 autoComplete="email"
@@ -226,8 +261,13 @@ export default function LoginPage() {
                     : 'password'
                 }
                 value={password}
-                onChange={(event) =>
-                  setPassword(event.target.value)
+                onChange={(
+                  event
+                ) =>
+                  setPassword(
+                    event.target
+                      .value
+                  )
                 }
                 placeholder="Sua senha"
                 autoComplete="current-password"
@@ -240,7 +280,8 @@ export default function LoginPage() {
                 type="button"
                 onClick={() =>
                   setShowPassword(
-                    (current) => !current
+                    (current) =>
+                      !current
                   )
                 }
                 disabled={loading}
@@ -249,13 +290,19 @@ export default function LoginPage() {
                     ? 'Ocultar senha'
                     : 'Mostrar senha'
                 }
-                aria-pressed={showPassword}
+                aria-pressed={
+                  showPassword
+                }
                 className="shrink-0 text-zinc-500 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {showPassword ? (
-                  <EyeOff size={18} />
+                  <EyeOff
+                    size={18}
+                  />
                 ) : (
-                  <Eye size={18} />
+                  <Eye
+                    size={18}
+                  />
                 )}
               </button>
             </div>
@@ -276,7 +323,9 @@ export default function LoginPage() {
               </>
             ) : (
               <>
-                <LogIn size={19} />
+                <LogIn
+                  size={19}
+                />
                 Entrar
               </>
             )}
@@ -295,4 +344,4 @@ export default function LoginPage() {
       </section>
     </main>
   );
-} 
+}
