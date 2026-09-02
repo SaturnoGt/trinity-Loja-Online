@@ -1,40 +1,27 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
-generator client {
-  provider = "prisma-client-js"
-}
-
-enum OrderStatus {
-  PENDING
-  PAID
-  PROCESSING
-  SHIPPED
-  DELIVERED
-  CANCELLED
-  REFUNDED
-}
-
 model Product {
-  id          Int      @id @default(autoincrement())
+  id          Int         @id @default(autoincrement())
   name        String
   price       Float
   description String?
   category    String?
-  createdAt   DateTime @default(now())
-
-  // Dados usados para calcular o frete
-  weight Float? // kg
-  width  Float? // cm
-  height Float? // cm
-  length Float? // cm
-
-  images     Image[]
-  variations Variation[]
-  orderItems OrderItem[]
-  favorites  Favorite[]
+  createdAt   DateTime    @default(now())
+  height      Float?
+  length      Float?
+  weight      Float?
+  width       Float?
+  favorites   Favorite[]
+  images      Image[]
+  orderItems  OrderItem[]
+  variations  Variation[]
 }
 
 model Image {
@@ -42,47 +29,41 @@ model Image {
   imageUrl  String
   isMain    Boolean @default(false)
   productId Int
-
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model Variation {
-  id        Int    @id @default(autoincrement())
-  size      String
-  color     String
-  stock     Int
-  productId Int
-
-  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id         Int         @id @default(autoincrement())
+  size       String
+  color      String
+  stock      Int
+  productId  Int
   orderItems OrderItem[]
+  product    Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
 }
 
 model User {
-  id         String  @id @default(uuid())
-  name       String?
-  email      String  @unique
-  password   String
-  role       String  @default("CLIENTE")
-  isVerified Boolean @default(false)
-
-  phone     String?
-  cpf       String?   @unique
-  birthDate DateTime?
-  avatarUrl String?
-
-  zipCode      String?
-  street       String?
-  number       String?
-  complement   String?
-  neighborhood String?
+  id           String     @id @default(uuid())
+  email        String     @unique
+  password     String
+  role         String     @default("CLIENTE")
+  isVerified   Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  avatarUrl    String?
+  birthDate    DateTime?
   city         String?
+  complement   String?
+  cpf          String?    @unique
+  name         String?
+  neighborhood String?
+  number       String?
+  phone        String?
   state        String?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  orders    Order[]
-  favorites Favorite[]
+  street       String?
+  zipCode      String?
+  favorites    Favorite[]
+  orders       Order[]
 }
 
 model Favorite {
@@ -90,9 +71,8 @@ model Favorite {
   userId    String
   productId Int
   createdAt DateTime @default(now())
-
-  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([userId, productId])
   @@index([userId])
@@ -100,72 +80,35 @@ model Favorite {
 }
 
 model Order {
-  id     String      @id @default(uuid())
-  status OrderStatus @default(PENDING)
-
-  // =========================
-  // VALORES DO PEDIDO
-  // =========================
-
-  subtotal      Float?
-  shippingPrice Float?
-  total         Float
-
-  // =========================
-  // MERCADO PAGO
-  // =========================
-
-  paymentId      String?   @unique
-  preferenceId   String?
-  stockReducedAt DateTime?
-
-  // =========================
-  // FRETE
-  // =========================
-
-  // ID do serviço retornado pelo Melhor Envio
-  shippingServiceId String?
-
-  // Ex: PAC, SEDEX, Jadlog Package
-  shippingService String?
-
-  // Ex: Correios, Jadlog
-  shippingCompany String?
-
-  // Prazo estimado em dias úteis
-  shippingDeadline Int?
-
-  // Código de rastreamento
-  trackingCode String?
-
-  // Link de rastreamento, caso disponível
-  trackingUrl String?
-
-  // URL da etiqueta, caso seja armazenada
-  shippingLabelUrl String?
-
-  // =========================
-  // ENDEREÇO DO PEDIDO
-  // =========================
-
-  shippingName         String?
-  shippingPhone        String?
-  shippingZipCode      String?
-  shippingStreet       String?
-  shippingNumber       String?
-  shippingComplement   String?
-  shippingNeighborhood String?
+  id                   String      @id @default(uuid())
+  status               OrderStatus @default(PENDING)
+  total                Float
+  paymentId            String?     @unique
+  userId               String
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
+  stockReducedAt       DateTime?
+  preferenceId         String?
   shippingCity         String?
+  shippingCompany      String?
+  shippingComplement   String?
+  shippingDeadline     Int?
+  shippingLabelUrl     String?
+  shippingName         String?
+  shippingNeighborhood String?
+  shippingNumber       String?
+  shippingPhone        String?
+  shippingPrice        Float?
+  shippingService      String?
+  shippingServiceId    String?
   shippingState        String?
-
-  // Cliente
-  userId String
-
-  user  User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  items OrderItem[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  shippingStreet       String?
+  shippingZipCode      String?
+  subtotal             Float?
+  trackingCode         String?
+  trackingUrl          String?
+  user                 User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items                OrderItem[]
 
   @@index([userId])
   @@index([status])
@@ -174,22 +117,18 @@ model Order {
 }
 
 model OrderItem {
-  id String @id @default(uuid())
-
-  productId Int
-  product   Product @relation(fields: [productId], references: [id])
-
-  variationId Int?
-  variation   Variation? @relation(fields: [variationId], references: [id])
-
+  id          String     @id @default(uuid())
+  productId   Int
   productName String
-  size        String?
-  color       String?
   quantity    Int
   unitPrice   Float
-
-  orderId String
-  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId     String
+  color       String?
+  size        String?
+  variationId Int?
+  order       Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product    @relation(fields: [productId], references: [id])
+  variation   Variation? @relation(fields: [variationId], references: [id])
 
   @@index([orderId])
   @@index([productId])
@@ -204,19 +143,22 @@ model EmailVerification {
   createdAt DateTime @default(now())
 }
 
-// ==========================================
-// CREDENCIAIS OAUTH DO MELHOR ENVIO
-// ==========================================
-
 model MelhorEnvioCredential {
-  id String @id @default("main")
-
-  accessToken  String
-  refreshToken String?
-
+  id                    String    @id @default("main")
+  accessToken           String
+  refreshToken          String?
   accessTokenExpiresAt  DateTime?
   refreshTokenExpiresAt DateTime?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+enum OrderStatus {
+  PENDING
+  PAID
+  CANCELLED
+  REFUNDED
+  PROCESSING
+  SHIPPED
+  DELIVERED
 }
